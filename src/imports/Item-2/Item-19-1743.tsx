@@ -187,6 +187,8 @@ export default function Item({
           value={message}
           onChange={(e) => onChange?.(e.target.value)}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           className="flex-1 bg-transparent text-[#E1E1E1] text-[14px] font-['MaruBuriExtraLight',sans-serif] leading-normal outline-none placeholder-[#515151]"
           placeholder="메시지 적기"
         />

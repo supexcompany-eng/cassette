@@ -85,6 +85,21 @@ export default function TapePage() {
     }
   }, [])
 
+  useEffect(() => {
+    const handler = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      if (target.closest('[data-segment-item]')) return
+      setFocusedIndex(null)
+    }
+    document.addEventListener('click', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('click', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [])
+
   const totalSeconds = useMemo(
     () => segments.reduce((sum, s) => sum + (s.duration_seconds || 0), 0),
     [segments],
@@ -309,8 +324,8 @@ export default function TapePage() {
           </button>
         </div>
 
-        <div className="absolute top-[108px] bottom-[148px] left-0 w-[393px] overflow-y-auto overflow-x-hidden">
-          <div className="pb-[100px]">
+        <div className="absolute top-[108px] bottom-0 left-0 w-[393px] overflow-y-auto overflow-x-hidden">
+          <div className="pb-[148px]">
             <div className="relative h-[232px] w-[393px]">
               <img
                 alt="Cassette Tape"
@@ -424,14 +439,14 @@ export default function TapePage() {
           </div>
         </div>
 
-        <div className="absolute bottom-0 h-[148px] left-0 w-[393px]">
+        <div className="absolute bottom-0 h-[148px] left-0 w-[393px] pointer-events-none">
           <div
             className="absolute h-[36px] left-0 top-0 w-[393px]"
             style={{
               background: 'linear-gradient(to bottom, rgba(23, 23, 23, 0) 0%, #171717 100%)',
             }}
           />
-          <div className="absolute bg-[#171717] flex flex-col h-[112px] items-start left-0 pt-[24px] px-[20px] top-[36px] w-[393px]">
+          <div className="absolute bg-[#171717] flex flex-col h-[112px] items-start left-0 pt-[24px] px-[20px] top-[36px] w-[393px] pointer-events-auto">
             <button
               onClick={handleFinishTape}
               disabled={saving}
