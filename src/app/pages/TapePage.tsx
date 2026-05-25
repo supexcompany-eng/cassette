@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { Reorder } from 'motion/react'
+import { AnimatePresence, Reorder, useDragControls } from 'motion/react'
 import svgPaths from '../../imports/Main-1/svg-l1aok5pcy5'
 import imgCassetteTape from '../../imports/Main-1/92592b07e4e86db60194b12fd429a4fc457cb9e9.png'
 import BtnControl from '../../imports/BtnControl/BtnControl'
@@ -41,6 +41,7 @@ export default function TapePage() {
   const [error, setError] = useState<string | null>(null)
   const [pressedButton, setPressedButton] = useState<ButtonType | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [recIntent, setRecIntent] = useState(false)
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null)
@@ -170,6 +171,7 @@ export default function TapePage() {
         if (playQueueRef.current.stop) return
         if (i >= playable.length) {
           setCurrentIndex(0)
+          setFocusedIndex(null)
           return
         }
         const seg = playable[i]
@@ -364,27 +366,27 @@ export default function TapePage() {
                   onReorder={handleReorder}
                   className="flex flex-col gap-[8px] w-full"
                 >
-                  {segments.map((segment, index) => {
-                    const focused =
-                      player.playingId === segment.id ||
-                      (!player.playingId && index === currentIndex)
-                    return (
-                      <Reorder.Item
-                        key={segment.id}
-                        value={segment}
-                        dragListener={swipeOpenId !== segment.id}
-                      >
-                        <Item
-                          count={(index + 1).toString()}
-                          message={segment.message}
-                          duration={formatTime(segment.duration_seconds)}
-                          isFocused={focused}
+                  <AnimatePresence initial={false}>
+                    {segments.map((segment, index) => {
+                      const focused =
+                        player.playingId === segment.id ||
+                        (!player.playingId && focusedIndex === index)
+                      return (
+                        <SegmentRow
+                          key={segment.id}
+                          segment={segment}
+                          index={index}
+                          focused={focused}
                           onDelete={() => handleDeleteSegment(segment.id)}
                           onChange={(value) => handleSegmentMessage(segment.id, value)}
-                          onTap={() => setCurrentIndex(index)}
+                          onTap={() => {
+                            setFocusedIndex(index)
+                            setCurrentIndex(index)
+                          }}
                           onOpenChange={(open) => {
                             if (open) {
                               setSwipeOpenId(segment.id)
+                              setFocusedIndex(null)
                               if (player.playingId) {
                                 playQueueRef.current.stop = true
                                 player.stop()
@@ -393,16 +395,24 @@ export default function TapePage() {
                               setSwipeOpenId((prev) => (prev === segment.id ? null : prev))
                             }
                           }}
-                          onInteractStart={() => {
+                          onSwipeStart={() => {
+                            setFocusedIndex(null)
+                            if (player.playingId) {
+                              playQueueRef.current.stop = true
+                              player.stop()
+                            }
+                          }}
+                          onLongPressStart={() => {
+                            setFocusedIndex(null)
                             if (player.playingId) {
                               playQueueRef.current.stop = true
                               player.stop()
                             }
                           }}
                         />
-                      </Reorder.Item>
-                    )
-                  })}
+                      )
+                    })}
+                  </AnimatePresence>
                 </Reorder.Group>
               )}
               {error && (
@@ -435,5 +445,56 @@ export default function TapePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+interface SegmentRowProps {
+  segment: Segment
+  index: number
+  focused: boolean
+  onDelete: () => void
+  onChange: (value: string) => void
+  onTap: () => void
+  onOpenChange: (open: boolean) => void
+  onSwipeStart: () => void
+  onLongPressStart: () => void
+}
+
+function SegmentRow({
+  segment,
+  index,
+  focused,
+  onDelete,
+  onChange,
+  onTap,
+  onOpenChange,
+  onSwipeStart,
+  onLongPressStart,
+}: SegmentRowProps) {
+  const dragControls = useDragControls()
+
+  return (
+    <Reorder.Item
+      value={segment}
+      dragListener={false}
+      dragControls={dragControls}
+      exit={{ x: -440, opacity: 0, transition: { duration: 0.25, ease: 'easeIn' } }}
+    >
+      <Item
+        count={(index + 1).toString()}
+        message={segment.message}
+        duration={formatTime(segment.duration_seconds)}
+        isFocused={focused}
+        onDelete={onDelete}
+        onChange={onChange}
+        onTap={onTap}
+        onOpenChange={onOpenChange}
+        onSwipeStart={onSwipeStart}
+        onLongPress={(event) => {
+          onLongPressStart()
+          dragControls.start(event)
+        }}
+      />
+    </Reorder.Item>
   )
 }

@@ -11,7 +11,8 @@ type ItemProps = {
   onChange?: (value: string) => void;
   onTap?: () => void;
   onOpenChange?: (open: boolean) => void;
-  onInteractStart?: () => void;
+  onSwipeStart?: () => void;
+  onLongPress?: (event: PointerEvent) => void;
 };
 
 export default function Item({
@@ -23,25 +24,23 @@ export default function Item({
   onChange,
   onTap,
   onOpenChange,
-  onInteractStart,
+  onSwipeStart,
+  onLongPress,
 }: ItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
   const x = useMotionValue(0);
   const itemRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressEventRef = useRef<PointerEvent | null>(null);
 
-  // 삭제 버튼 너비
   const DELETE_WIDTH = 55;
-
-  // 스와이프 threshold
   const OPEN_THRESHOLD = -30;
 
   useEffect(() => {
     onOpenChange?.(isOpen);
   }, [isOpen, onOpenChange]);
 
-  // 외부 클릭 감지
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (isOpen && itemRef.current && !itemRef.current.contains(e.target as Node)) {
@@ -60,7 +59,6 @@ export default function Item({
     };
   }, [isOpen]);
 
-  // 타이머 클린업
   useEffect(() => {
     return () => {
       if (longPressTimer.current) {
@@ -68,6 +66,13 @@ export default function Item({
       }
     };
   }, []);
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
 
   const handleDragEnd = (_: any, info: PanInfo) => {
     const offset = info.offset.x;
@@ -88,34 +93,36 @@ export default function Item({
     onTap?.();
   };
 
-  const bgClass = isFocused ? 'bg-[#252525]' : 'bg-[#1c1c1c]';
+  const bgClass = isReordering
+    ? 'bg-[#1c1c1c]'
+    : isFocused
+      ? 'bg-[#252525]'
+      : 'bg-[#1c1c1c]';
 
   return (
     <div
       ref={itemRef}
       className="relative w-full h-[56px] overflow-hidden"
       data-name="item"
+      data-segment-item="true"
       onPointerDown={(e) => {
         const target = e.target as HTMLElement;
-        if (target.tagName !== 'INPUT') {
-          longPressTimer.current = setTimeout(() => {
-            setIsReordering(true);
-            onInteractStart?.();
-          }, 500);
-        }
+        if (target.tagName === 'INPUT') return;
+        if (isOpen) return;
+        longPressEventRef.current = e.nativeEvent;
+        longPressTimer.current = setTimeout(() => {
+          setIsReordering(true);
+          if (longPressEventRef.current) {
+            onLongPress?.(longPressEventRef.current);
+          }
+        }, 500);
       }}
       onPointerUp={() => {
-        if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null;
-        }
+        cancelLongPress();
         setIsReordering(false);
       }}
       onPointerCancel={() => {
-        if (longPressTimer.current) {
-          clearTimeout(longPressTimer.current);
-          longPressTimer.current = null;
-        }
+        cancelLongPress();
         setIsReordering(false);
       }}
     >
@@ -152,7 +159,10 @@ export default function Item({
         dragConstraints={{ left: -DELETE_WIDTH, right: 0 }}
         dragElastic={{ left: 0.2, right: 0.5 }}
         dragMomentum={false}
-        onDragStart={() => onInteractStart?.()}
+        onDragStart={() => {
+          cancelLongPress();
+          onSwipeStart?.();
+        }}
         onDragEnd={handleDragEnd}
         onClick={handleItemClick}
         animate={{ x: isOpen ? -DELETE_WIDTH : 0 }}
