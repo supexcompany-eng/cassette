@@ -42,6 +42,8 @@ export default function TapePage() {
   const [pressedButton, setPressedButton] = useState<ButtonType | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [recIntent, setRecIntent] = useState(false)
+  const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null)
 
   const recorder = useRecorder()
   const player = usePlayer()
@@ -122,15 +124,18 @@ export default function TapePage() {
   const startRecording = useCallback(async () => {
     if (!id) return
     if (player.playingId) player.stop()
+    setRecIntent(true)
     try {
       await recorder.start()
     } catch (e) {
+      setRecIntent(false)
       setError(e instanceof Error ? e.message : 'Microphone unavailable')
     }
   }, [id, player, recorder])
 
   const stopRecording = useCallback(async () => {
     if (!id) return
+    setRecIntent(false)
     const result = await recorder.stop()
     if (!result) return
     try {
@@ -163,7 +168,10 @@ export default function TapePage() {
       let i = queueIndex
       const playNext = () => {
         if (playQueueRef.current.stop) return
-        if (i >= playable.length) return
+        if (i >= playable.length) {
+          setCurrentIndex(0)
+          return
+        }
         const seg = playable[i]
         const absoluteIndex = segments.findIndex((s) => s.id === seg.id)
         if (absoluteIndex >= 0) setCurrentIndex(absoluteIndex)
@@ -264,11 +272,11 @@ export default function TapePage() {
   }
 
   const buttons: { type: ButtonType; label: string }[] = [
-    { type: 'rew', label: 'REW' },
-    { type: 'stop', label: 'STOP' },
-    { type: 'play', label: 'PLAY' },
-    { type: 'rec', label: 'REC' },
-    { type: 'ff', label: 'FF' },
+    { type: 'rew', label: 'rew' },
+    { type: 'stop', label: 'stop' },
+    { type: 'play', label: 'play' },
+    { type: 'rec', label: 'rec' },
+    { type: 'ff', label: 'ff' },
   ]
 
   return (
@@ -304,9 +312,7 @@ export default function TapePage() {
             <div className="relative h-[232px] w-[393px]">
               <img
                 alt="Cassette Tape"
-                className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[231.578px] w-[353px] object-cover ${
-                  recorder.isRecording || player.playingId ? 'animate-pulse' : ''
-                }`}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[231.578px] w-[353px] object-cover"
                 src={imgCassetteTape}
               />
             </div>
@@ -318,9 +324,9 @@ export default function TapePage() {
                   type={btn.type}
                   label={btn.label}
                   isPressed={
-                    pressedButton === btn.type ||
-                    (btn.type === 'rec' && recorder.isRecording) ||
-                    (btn.type === 'play' && !!player.playingId)
+                    (btn.type === 'rec' && recIntent) ||
+                    (btn.type === 'play' && !!player.playingId) ||
+                    (pressedButton === btn.type && btn.type !== 'rec')
                   }
                   onPress={() => {
                     setPressedButton(btn.type)
@@ -356,23 +362,47 @@ export default function TapePage() {
                   axis="y"
                   values={segments}
                   onReorder={handleReorder}
-                  className="flex flex-col gap-[8px] w-full px-[20px]"
+                  className="flex flex-col gap-[8px] w-full"
                 >
-                  {segments.map((segment, index) => (
-                    <Reorder.Item
-                      key={segment.id}
-                      value={segment}
-                      className={index === currentIndex ? '' : 'opacity-70'}
-                    >
-                      <Item
-                        count={(index + 1).toString()}
-                        message={segment.message}
-                        duration={formatTime(segment.duration_seconds)}
-                        onDelete={() => handleDeleteSegment(segment.id)}
-                        onChange={(value) => handleSegmentMessage(segment.id, value)}
-                      />
-                    </Reorder.Item>
-                  ))}
+                  {segments.map((segment, index) => {
+                    const focused =
+                      player.playingId === segment.id ||
+                      (!player.playingId && index === currentIndex)
+                    return (
+                      <Reorder.Item
+                        key={segment.id}
+                        value={segment}
+                        dragListener={swipeOpenId !== segment.id}
+                      >
+                        <Item
+                          count={(index + 1).toString()}
+                          message={segment.message}
+                          duration={formatTime(segment.duration_seconds)}
+                          isFocused={focused}
+                          onDelete={() => handleDeleteSegment(segment.id)}
+                          onChange={(value) => handleSegmentMessage(segment.id, value)}
+                          onTap={() => setCurrentIndex(index)}
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setSwipeOpenId(segment.id)
+                              if (player.playingId) {
+                                playQueueRef.current.stop = true
+                                player.stop()
+                              }
+                            } else {
+                              setSwipeOpenId((prev) => (prev === segment.id ? null : prev))
+                            }
+                          }}
+                          onInteractStart={() => {
+                            if (player.playingId) {
+                              playQueueRef.current.stop = true
+                              player.stop()
+                            }
+                          }}
+                        />
+                      </Reorder.Item>
+                    )
+                  })}
                 </Reorder.Group>
               )}
               {error && (
@@ -385,7 +415,12 @@ export default function TapePage() {
         </div>
 
         <div className="absolute bottom-0 h-[148px] left-0 w-[393px]">
-          <div className="absolute bg-gradient-to-b from-[rgba(23,23,23,0)] h-[36px] left-0 to-[#171717] top-0 w-[393px]" />
+          <div
+            className="absolute h-[36px] left-0 top-0 w-[393px]"
+            style={{
+              background: 'linear-gradient(to bottom, rgba(23, 23, 23, 0) 0%, #171717 100%)',
+            }}
+          />
           <div className="absolute bg-[#171717] flex flex-col h-[112px] items-start left-0 pt-[24px] px-[20px] top-[36px] w-[393px]">
             <button
               onClick={handleFinishTape}

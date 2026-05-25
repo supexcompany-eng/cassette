@@ -6,16 +6,24 @@ type ItemProps = {
   count?: string;
   message?: string;
   duration?: string;
+  isFocused?: boolean;
   onDelete?: () => void;
   onChange?: (value: string) => void;
+  onTap?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  onInteractStart?: () => void;
 };
 
 export default function Item({
   count = "1",
   message = "메모 적기",
   duration = "00:02",
+  isFocused = false,
   onDelete,
-  onChange
+  onChange,
+  onTap,
+  onOpenChange,
+  onInteractStart,
 }: ItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
@@ -28,6 +36,10 @@ export default function Item({
 
   // 스와이프 threshold
   const OPEN_THRESHOLD = -30;
+
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
 
   // 외부 클릭 감지
   useEffect(() => {
@@ -61,7 +73,6 @@ export default function Item({
     const offset = info.offset.x;
     const velocity = info.velocity.x;
 
-    // 빠르게 스와이프하거나 threshold 넘으면 열기
     if (offset < OPEN_THRESHOLD || velocity < -500) {
       setIsOpen(true);
     } else {
@@ -72,8 +83,12 @@ export default function Item({
   const handleItemClick = () => {
     if (isOpen) {
       setIsOpen(false);
+      return;
     }
+    onTap?.();
   };
+
+  const bgClass = isFocused ? 'bg-[#252525]' : 'bg-[#1c1c1c]';
 
   return (
     <div
@@ -85,6 +100,7 @@ export default function Item({
         if (target.tagName !== 'INPUT') {
           longPressTimer.current = setTimeout(() => {
             setIsReordering(true);
+            onInteractStart?.();
           }, 500);
         }
       }}
@@ -104,7 +120,7 @@ export default function Item({
       }}
     >
       {/* 삭제 버튼 배경 */}
-      <div className="-translate-y-1/2 absolute right-px size-[40px] top-1/2">
+      <div className="-translate-y-1/2 absolute right-[20px] size-[40px] top-1/2">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -131,11 +147,12 @@ export default function Item({
 
       {/* 드래그 가능한 아이템 */}
       <motion.div
-        drag="x"
+        drag={isReordering ? false : 'x'}
         dragDirectionLock
         dragConstraints={{ left: -DELETE_WIDTH, right: 0 }}
         dragElastic={{ left: 0.2, right: 0.5 }}
         dragMomentum={false}
+        onDragStart={() => onInteractStart?.()}
         onDragEnd={handleDragEnd}
         onClick={handleItemClick}
         animate={{ x: isOpen ? -DELETE_WIDTH : 0 }}
@@ -146,7 +163,7 @@ export default function Item({
           mass: 0.8
         }}
         style={{ x }}
-        className="absolute bg-[#1c1c1c] flex gap-[12px] h-[56px] items-center left-0 px-[17px] py-px rounded-[8px] top-0 w-[353px] touch-pan-y"
+        className={`absolute ${bgClass} flex gap-[12px] h-[56px] items-center left-[20px] px-[17px] py-px rounded-[8px] top-0 w-[353px] touch-pan-y`}
       >
         <motion.div
           aria-hidden="true"
