@@ -22,11 +22,14 @@ import type { Segment, Tape } from '../../lib/types'
 import { useRecorder } from '../../hooks/useRecorder'
 import { usePlayer } from '../../hooks/usePlayer'
 
+const MAX_TAPE_SECONDS = 30 * 60
+const MAX_TITLE_LENGTH = 10
+
 function formatTime(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds))
   const m = Math.floor(safe / 60)
   const s = safe % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  return `${String(m).padStart(2, '0')}분 ${String(s).padStart(2, '0')}초`
 }
 
 type ButtonType = 'rew' | 'stop' | 'play' | 'rec' | 'ff'
@@ -45,12 +48,16 @@ export default function TapePage() {
   const [saving, setSaving] = useState(false)
   const [recIntent, setRecIntent] = useState(false)
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
 
   const recorder = useRecorder()
   const player = usePlayer()
 
   const playQueueRef = useRef<{ stop: boolean }>({ stop: false })
   const editTimersRef = useRef<Map<string, number>>(new Map())
+  const totalAtRecStartRef = useRef(0)
+  const autoStopTriggeredRef = useRef(false)
 
   useEffect(() => {
     if (!id) return
@@ -105,7 +112,10 @@ export default function TapePage() {
     [segments],
   )
 
-  const headerTime = recorder.isRecording ? formatTime(recorder.elapsedSeconds) : formatTime(totalSeconds)
+  const liveSeconds = recorder.isRecording
+    ? Math.min(MAX_TAPE_SECONDS, totalAtRecStartRef.current + recorder.elapsedSeconds)
+    : totalSeconds
+  const headerTime = `${formatTime(liveSeconds)} / 30분`
 
   const handleSegmentMessage = (segId: string, newMessage: string) => {
     setSegments((prev) => prev.map((s) => (s.id === segId ? { ...s, message: newMessage } : s)))
@@ -139,7 +149,14 @@ export default function TapePage() {
 
   const startRecording = useCallback(async () => {
     if (!id) return
+    if (totalSeconds >= MAX_TAPE_SECONDS) {
+      setError('최대 녹음 시간(30분)에 도달했어요')
+      return
+    }
     if (player.playingId) player.stop()
+    totalAtRecStartRef.current = totalSeconds
+    autoStopTriggeredRef.current = false
+    setError(null)
     setRecIntent(true)
     try {
       await recorder.start()
@@ -147,7 +164,7 @@ export default function TapePage() {
       setRecIntent(false)
       setError(e instanceof Error ? e.message : 'Microphone unavailable')
     }
-  }, [id, player, recorder])
+  }, [id, player, recorder, totalSeconds])
 
   const stopRecording = useCallback(async () => {
     if (!id) return
@@ -157,12 +174,14 @@ export default function TapePage() {
     try {
       const ext = result.mimeType.includes('mp4') ? 'mp4' : result.mimeType.includes('ogg') ? 'ogg' : 'webm'
       const path = await uploadAudio(id, result.blob, ext)
+      const remaining = Math.max(0, MAX_TAPE_SECONDS - totalAtRecStartRef.current)
+      const clampedDuration = Math.min(result.durationSeconds, remaining)
       const nextPosition = segments.length
       const inserted = await insertSegment({
         tape_id: id,
         position: nextPosition,
         message: '',
-        duration_seconds: result.durationSeconds,
+        duration_seconds: clampedDuration,
         audio_path: path,
       })
       setSegments((prev) => [...prev, inserted])
@@ -170,6 +189,19 @@ export default function TapePage() {
       setError(e instanceof Error ? e.message : 'Failed to save recording')
     }
   }, [id, recorder, segments.length])
+
+  useEffect(() => {
+    if (!recorder.isRecording) {
+      autoStopTriggeredRef.current = false
+      return
+    }
+    if (autoStopTriggeredRef.current) return
+    const live = totalAtRecStartRef.current + recorder.elapsedSeconds
+    if (live >= MAX_TAPE_SECONDS) {
+      autoStopTriggeredRef.current = true
+      void stopRecording()
+    }
+  }, [recorder.elapsedSeconds, recorder.isRecording, stopRecording])
 
   const playFrom = useCallback(
     (startIndex: number) => {
@@ -235,6 +267,28 @@ export default function TapePage() {
       const next = Math.min(Math.max(0, segments.length - 1), currentIndex + 1)
       setCurrentIndex(next)
       if (player.playingId) playFrom(next)
+    }
+  }
+
+  const beginEditTitle = () => {
+    if (!tape) return
+    setTitleDraft(tape.title)
+    setEditingTitle(true)
+  }
+
+  const commitTitle = async () => {
+    if (!tape) {
+      setEditingTitle(false)
+      return
+    }
+    const trimmed = titleDraft.trim().slice(0, MAX_TITLE_LENGTH)
+    setEditingTitle(false)
+    if (!trimmed || trimmed === tape.title) return
+    setTape({ ...tape, title: trimmed })
+    try {
+      await updateTape(tape.id, { title: trimmed })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update title')
     }
   }
 
@@ -316,9 +370,32 @@ export default function TapePage() {
           <button onClick={() => navigate('/')} className="relative rounded-[10px] size-[40px] p-[8px]">
             <IconBack />
           </button>
-          <p className="flex-1 font-['Sometype_Mono',monospace] leading-[25.5px] text-[17px] text-[#e1e1e1] text-center">
-            {tape?.title ?? 'tape'}
-          </p>
+          {editingTitle ? (
+            <input
+              type="text"
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value.slice(0, MAX_TITLE_LENGTH))}
+              maxLength={MAX_TITLE_LENGTH}
+              autoFocus
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  ;(e.target as HTMLInputElement).blur()
+                } else if (e.key === 'Escape') {
+                  setEditingTitle(false)
+                }
+              }}
+              className="flex-1 bg-transparent font-['Sometype_Mono',monospace] leading-[25.5px] text-[17px] text-[#e1e1e1] text-center outline-none"
+            />
+          ) : (
+            <p
+              onClick={beginEditTitle}
+              className="flex-1 font-['Sometype_Mono',monospace] leading-[25.5px] text-[17px] text-[#e1e1e1] text-center cursor-text"
+            >
+              {tape?.title ?? 'tape'}
+            </p>
+          )}
           <button onClick={handleDeleteTape} className="relative rounded-[10px] size-[36px] p-[8px]">
             <IconDelete />
           </button>
