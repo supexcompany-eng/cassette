@@ -35,7 +35,8 @@ export default function Item({
   const longPressEventRef = useRef<PointerEvent | null>(null);
 
   const DELETE_WIDTH = 55;
-  const OPEN_THRESHOLD = -30;
+  const OPEN_THRESHOLD = -DELETE_WIDTH / 2;
+  const VELOCITY_THRESHOLD = -500;
 
   useEffect(() => {
     onOpenChange?.(isOpen);
@@ -78,7 +79,7 @@ export default function Item({
     const offset = info.offset.x;
     const velocity = info.velocity.x;
 
-    if (offset < OPEN_THRESHOLD || velocity < -500) {
+    if (offset < OPEN_THRESHOLD || velocity < VELOCITY_THRESHOLD) {
       setIsOpen(true);
     } else {
       setIsOpen(false);
@@ -157,7 +158,7 @@ export default function Item({
         drag={isReordering ? false : 'x'}
         dragDirectionLock
         dragConstraints={{ left: -DELETE_WIDTH, right: 0 }}
-        dragElastic={{ left: 0.2, right: 0.5 }}
+        dragElastic={{ left: 0.15, right: 0.5 }}
         dragMomentum={false}
         onDragStart={() => {
           cancelLongPress();
@@ -173,7 +174,7 @@ export default function Item({
           mass: 0.8
         }}
         style={{ x }}
-        className={`absolute ${bgClass} flex gap-[12px] h-[56px] items-center left-[20px] px-[17px] py-px rounded-[8px] top-0 w-[353px] touch-pan-y`}
+        className={`absolute ${bgClass} flex gap-[12px] h-[56px] items-center left-[20px] right-[20px] px-[17px] py-px rounded-[8px] top-0 touch-pan-y`}
       >
         <motion.div
           aria-hidden="true"
@@ -185,13 +186,15 @@ export default function Item({
         <input
           type="text"
           value={message}
-          onChange={(e) => onChange?.(e.target.value)}
+          maxLength={15}
+          onChange={(e) => onChange?.(e.target.value.slice(0, 15))}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="flex-1 bg-transparent text-[#E1E1E1] text-[14px] font-['MaruBuriExtraLight',sans-serif] leading-normal outline-none placeholder-[#515151]"
+          className="bg-transparent text-[#E1E1E1] text-[14px] font-['MaruBuriExtraLight',sans-serif] leading-normal outline-none placeholder-[#515151] [field-sizing:content] min-w-[20px] max-w-full"
           placeholder="메시지 적기"
         />
+        <div className="flex-1" aria-hidden />
         <span className="text-[#888] text-[12px] font-['Sometype_Mono',sans-serif] leading-normal text-right shrink-0">{duration}</span>
       </motion.div>
     </div>

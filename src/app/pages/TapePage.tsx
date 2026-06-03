@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { AnimatePresence, Reorder, useDragControls } from 'motion/react'
 import svgPaths from '../../imports/Main-1/svg-l1aok5pcy5'
-import imgCassetteTape from '../../imports/Main-1/92592b07e4e86db60194b12fd429a4fc457cb9e9.png'
 import BtnControl from '../../imports/BtnControl/BtnControl'
 import IconBack from '../../imports/IconBack-1/IconBack'
 import IconDelete from '../../imports/IconDelete-1/IconDelete'
@@ -18,9 +17,11 @@ import {
   updateTape,
 } from '../../lib/db'
 import { deleteAudio, getAudioUrl, uploadAudio } from '../../lib/storage'
-import type { Segment, Tape } from '../../lib/types'
+import type { Segment, Sticker, Tape } from '../../lib/types'
 import { useRecorder } from '../../hooks/useRecorder'
 import { usePlayer } from '../../hooks/usePlayer'
+import MobileFrame from '../components/MobileFrame'
+import CassetteFace from '../components/CassetteFace'
 
 const MAX_TAPE_SECONDS = 30 * 60
 const MAX_TITLE_LENGTH = 10
@@ -50,6 +51,7 @@ export default function TapePage() {
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
+  const [stickers, setStickers] = useState<Sticker[]>([])
 
   const recorder = useRecorder()
   const player = usePlayer()
@@ -71,6 +73,7 @@ export default function TapePage() {
         } else {
           setTape(t)
           setSegments(s)
+          setStickers(t.decoration ?? [])
         }
       })
       .catch((e) => {
@@ -116,6 +119,8 @@ export default function TapePage() {
     ? Math.min(MAX_TAPE_SECONDS, totalAtRecStartRef.current + recorder.elapsedSeconds)
     : totalSeconds
   const headerTime = `${formatTime(liveSeconds)} / 30분`
+
+  const reelSpinning = recorder.isRecording || recIntent || !!player.playingId
 
   const handleSegmentMessage = (segId: string, newMessage: string) => {
     setSegments((prev) => prev.map((s) => (s.id === segId ? { ...s, message: newMessage } : s)))
@@ -322,7 +327,7 @@ export default function TapePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center text-[#888] font-['Sometype_Mono',monospace] text-[14px]">
+      <div className="min-h-dvh bg-[#000000] flex items-center justify-center text-[#888] font-['Sometype_Mono',monospace] text-[14px]">
         loading...
       </div>
     )
@@ -330,7 +335,7 @@ export default function TapePage() {
 
   if (error && !tape) {
     return (
-      <div className="min-h-screen bg-[#000000] flex flex-col items-center justify-center gap-[16px] text-[#E1E1E1]">
+      <div className="min-h-dvh bg-[#000000] flex flex-col items-center justify-center gap-[16px] text-[#E1E1E1]">
         <p className="font-['MaruBuri',sans-serif] text-[14px]">{error}</p>
         <button
           onClick={() => navigate('/')}
@@ -351,23 +356,17 @@ export default function TapePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#000000] flex items-center justify-center">
-      <div className="w-[393px] h-[852px] bg-[#171717] text-[#E1E1E1] relative overflow-hidden">
-        <div className="absolute bg-[#171717] flex h-[44px] items-center justify-between left-0 px-[24px] top-0 w-[393px] z-20">
-          <div className="h-[22.5px] w-[36.125px]">
-            <p className="font-['Sometype_Mono',monospace] leading-[22.5px] text-[15px] text-[#E1E1E1]">9:41</p>
-          </div>
-          <div className="h-[12px] w-[17px]">
-            <svg className="block size-full" fill="none" viewBox="0 0 17 12">
-              <path d={svgPaths.p25887600} stroke="#E1E1E1" strokeOpacity="0.35" />
-              <path d={svgPaths.p1600e000} fill="#E1E1E1" />
-              <path d={svgPaths.p10a18e00} fill="#E1E1E1" fillOpacity="0.4" />
-            </svg>
-          </div>
-        </div>
+    <MobileFrame>
+        <div
+          className="shrink-0"
+          style={{ height: 'max(env(safe-area-inset-top), 12px)' }}
+        />
 
-        <div className="absolute bg-[#171717] flex h-[64px] items-center justify-between left-0 px-[12px] py-[16px] top-[44px] w-[393px] z-10">
-          <button onClick={() => navigate('/')} className="relative rounded-[10px] size-[40px] p-[8px]">
+        <div className="flex items-center h-[64px] px-[12px] shrink-0 bg-[#171717] z-10">
+          <button
+            onClick={() => navigate('/')}
+            className="size-[40px] shrink-0 flex items-center justify-center"
+          >
             <IconBack />
           </button>
           {editingTitle ? (
@@ -386,53 +385,69 @@ export default function TapePage() {
                   setEditingTitle(false)
                 }
               }}
-              className="flex-1 bg-transparent font-['Sometype_Mono',monospace] leading-[25.5px] text-[17px] text-[#e1e1e1] text-center outline-none"
+              className="flex-1 bg-transparent font-['Sometype_Mono',monospace] leading-[27px] text-[18px] text-[#e1e1e1] text-center outline-none"
             />
           ) : (
             <p
               onClick={beginEditTitle}
-              className="flex-1 font-['Sometype_Mono',monospace] leading-[25.5px] text-[17px] text-[#e1e1e1] text-center cursor-text"
+              className="flex-1 font-['Sometype_Mono',monospace] leading-[27px] text-[18px] text-[#e1e1e1] text-center cursor-text"
             >
               {tape?.title ?? 'tape'}
             </p>
           )}
-          <button onClick={handleDeleteTape} className="relative rounded-[10px] size-[36px] p-[8px]">
+          <button
+            onClick={handleDeleteTape}
+            className="size-[40px] shrink-0 flex items-center justify-center"
+          >
             <IconDelete />
           </button>
         </div>
 
-        <div className="absolute top-[108px] bottom-0 left-0 w-[393px] overflow-y-auto overflow-x-hidden">
-          <div className="pb-[148px]">
-            <div className="relative h-[232px] w-[393px]">
-              <img
-                alt="Cassette Tape"
-                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[231.578px] w-[353px] object-cover"
-                src={imgCassetteTape}
+        <div className="flex-1 relative overflow-hidden">
+          <div className="absolute inset-0 overflow-y-auto overflow-x-hidden">
+            <div
+              style={{ paddingBottom: 'calc(148px + env(safe-area-inset-bottom))' }}
+            >
+            <div className="flex justify-center w-full h-[232px] items-center">
+              <CassetteFace
+                stickers={stickers}
+                spinning={reelSpinning}
+                overlay={
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/tape/${id}/decorate`)}
+                    className="absolute top-[8px] right-[8px] z-20 flex h-[28px] items-center gap-[4px] rounded-full bg-[#171717]/85 px-[12px] font-['Sometype_Mono',monospace] text-[12px] text-[#e1e1e1] backdrop-blur-sm"
+                  >
+                    꾸미기
+                  </button>
+                }
               />
             </div>
 
-            <div className="flex items-center justify-between px-[20px] py-[10px] w-[393px]">
-              {buttons.map((btn) => (
-                <BtnControl
-                  key={btn.type}
-                  type={btn.type}
-                  label={btn.label}
-                  isPressed={
-                    (btn.type === 'rec' && recIntent) ||
-                    (btn.type === 'play' && !!player.playingId) ||
-                    (pressedButton === btn.type && btn.type !== 'rec')
-                  }
-                  onPress={() => {
-                    setPressedButton(btn.type)
-                    handleButtonAction(btn.type)
-                  }}
-                  onRelease={() => setPressedButton(null)}
-                  className="h-[74px] overflow-clip relative rounded-[8px] shrink-0 w-[70px] cursor-pointer"
-                />
-              ))}
+            <div className="flex justify-center w-full py-[10px]">
+              <div className="flex items-center justify-between w-[353px]">
+                {buttons.map((btn) => (
+                  <BtnControl
+                    key={btn.type}
+                    type={btn.type}
+                    label={btn.label}
+                    isPressed={
+                      (btn.type === 'rec' && recIntent) ||
+                      (btn.type === 'play' && !!player.playingId) ||
+                      (pressedButton === btn.type && btn.type !== 'rec')
+                    }
+                    onPress={() => {
+                      setPressedButton(btn.type)
+                      handleButtonAction(btn.type)
+                    }}
+                    onRelease={() => setPressedButton(null)}
+                    className="h-[74px] overflow-clip relative rounded-[8px] shrink-0 w-[70px] cursor-pointer"
+                  />
+                ))}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-[10px] items-start w-[393px]">
+            <div className="flex flex-col gap-[10px] items-start w-full">
               <div className="h-[24px] w-full px-[20px]">
                 <div className="flex items-center justify-between px-[4px] size-full">
                   <p className="font-['MaruBuri',sans-serif] leading-[16px] text-[#888] text-[12px] uppercase">
@@ -445,9 +460,9 @@ export default function TapePage() {
               </div>
               {segments.length === 0 ? (
                 <div className="w-full px-[20px]">
-                  <div className="border border-dashed border-[#2a2a2a] rounded-[8px] py-[24px] text-center">
-                    <p className="font-['MaruBuri',sans-serif] text-[#515151] text-[12px]">
-                      REC 버튼을 눌러 녹음을 시작하세요
+                  <div className="bg-[#1c1c1c] h-[184px] rounded-[8px] flex items-center justify-center w-full">
+                    <p className="font-['MaruBuri',sans-serif] font-normal leading-normal text-[#515151] text-[14px] whitespace-nowrap">
+                      기록하고 싶은 순간을 모아보세요
                     </p>
                   </div>
                 </div>
@@ -513,30 +528,35 @@ export default function TapePage() {
                 </p>
               )}
             </div>
+            </div>
           </div>
-        </div>
 
-        <div className="absolute bottom-0 h-[148px] left-0 w-[393px] pointer-events-none">
-          <div
-            className="absolute h-[36px] left-0 top-0 w-[393px]"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(23, 23, 23, 0) 0%, #171717 100%)',
-            }}
-          />
-          <div className="absolute bg-[#171717] flex flex-col h-[112px] items-start left-0 pt-[24px] px-[20px] top-[36px] w-[393px] pointer-events-auto">
-            <button
-              onClick={handleFinishTape}
-              disabled={saving}
-              className="bg-[#e1e1e1] h-[56px] rounded-[8px] w-full relative disabled:opacity-50"
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+            <div
+              className="h-[36px] w-full"
+              style={{
+                background: 'linear-gradient(to bottom, rgba(23, 23, 23, 0) 0%, #171717 100%)',
+              }}
+            />
+            <div
+              className="bg-[#171717] flex flex-col items-start pt-[24px] px-[20px] pointer-events-auto w-full"
+              style={{
+                paddingBottom: 'max(32px, env(safe-area-inset-bottom))',
+              }}
             >
-              <p className="absolute left-1/2 -translate-x-1/2 font-['MaruBuriBold',sans-serif] leading-normal text-[#111] text-[17px] text-center top-[17.25px]">
-                {saving ? '저장 중...' : '녹음 완료'}
-              </p>
-            </button>
+              <button
+                onClick={handleFinishTape}
+                disabled={saving || segments.length === 0}
+                className="bg-[#e1e1e1] disabled:bg-[#555555] h-[56px] rounded-[8px] w-full relative"
+              >
+                <p className="absolute left-1/2 -translate-x-1/2 font-['MaruBuriBold',sans-serif] leading-normal text-[#111] text-[16px] text-center top-[17.25px]">
+                  {saving ? '저장 중...' : '전달하기'}
+                </p>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+    </MobileFrame>
   )
 }
 

@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes, Navigate } from 'react-router'
 import TapeListPage from './pages/TapeListPage'
 import TapePage from './pages/TapePage'
+import DecoratePage from './pages/DecoratePage'
 
 export default function App() {
   return (
@@ -8,6 +9,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<TapeListPage />} />
         <Route path="/tape/:id" element={<TapePage />} />
+        <Route path="/tape/:id/decorate" element={<DecoratePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
