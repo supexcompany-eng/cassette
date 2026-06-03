@@ -3,6 +3,7 @@
 create table if not exists tapes (
   id uuid primary key default gen_random_uuid(),
   title text not null default 'tape 01',
+  caption text not null default '',
   decoration jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -10,6 +11,7 @@ create table if not exists tapes (
 
 -- 기존 테이블이 있을 경우 컬럼 추가
 alter table tapes add column if not exists decoration jsonb not null default '[]'::jsonb;
+alter table tapes add column if not exists caption text not null default '';
 
 create table if not exists segments (
   id uuid primary key default gen_random_uuid(),

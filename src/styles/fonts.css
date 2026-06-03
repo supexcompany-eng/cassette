@@ -1,2 +1,21 @@
 @import url('https://hangeul.pstatic.net/hangeul_static/css/maru-buri.css');
 @import url('https://fonts.googleapis.com/css2?family=Sometype+Mono:ital,wght@0,400..700;1,400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbit&display=swap');
+
+/* 카세트 라벨 문구용 — 배민 꾸불림체 (Figma: BM kkubulim TTF) */
+@font-face {
+  font-family: 'BM Kkubulim';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2410-1@1.0/BMkkubulimTTF-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * 혼합 스크립트 폰트: 영문/숫자는 Sometype Mono, 한글은 Orbit.
+ * Sometype Mono에 한글 글리프가 없어 자동으로 Orbit으로 폴백되므로
+ * 한 클래스로 글리프 단위 분기가 된다.
+ */
+.font-mix {
+  font-family: 'Sometype Mono', 'Orbit', sans-serif;
+}

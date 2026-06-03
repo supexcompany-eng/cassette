@@ -10,6 +10,8 @@ export interface UseRecorder {
   isRecording: boolean
   elapsedSeconds: number
   error: string | null
+  /** 녹음 중인 마이크 스트림 (VU 미터 레벨 분석용). 미녹음 시 null */
+  stream: MediaStream | null
   start: () => Promise<void>
   stop: () => Promise<RecordingResult | null>
   cancel: () => void
@@ -28,6 +30,7 @@ export function useRecorder(): UseRecorder {
   const [isRecording, setIsRecording] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -45,6 +48,7 @@ export function useRecorder(): UseRecorder {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
+    setStream(null)
     recorderRef.current = null
     chunksRef.current = []
   }, [])
@@ -57,6 +61,7 @@ export function useRecorder(): UseRecorder {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
+      setStream(stream)
       const mimeType = pickMimeType()
       const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
       recorderRef.current = recorder
@@ -118,5 +123,5 @@ export function useRecorder(): UseRecorder {
     setElapsedSeconds(0)
   }, [cleanup])
 
-  return { isRecording, elapsedSeconds, error, start, stop, cancel }
+  return { isRecording, elapsedSeconds, error, stream, start, stop, cancel }
 }

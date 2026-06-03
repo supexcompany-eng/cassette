@@ -21,6 +21,7 @@ export async function listTapesWithStats(): Promise<TapeWithStats[]> {
     return {
       id: row.id,
       title: row.title,
+      caption: row.caption ?? '',
       decoration: row.decoration ?? [],
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -36,7 +37,7 @@ export async function listTapesWithStats(): Promise<TapeWithStats[]> {
 export async function getTape(id: string): Promise<Tape | null> {
   const { data, error } = await supabase.from('tapes').select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return data ? { ...data, decoration: data.decoration ?? [] } : null
+  return data ? { ...data, caption: data.caption ?? '', decoration: data.decoration ?? [] } : null
 }
 
 export async function createTape(title?: string): Promise<Tape> {
@@ -49,12 +50,12 @@ export async function createTape(title?: string): Promise<Tape> {
     .select()
     .single()
   if (error) throw error
-  return { ...data, decoration: data.decoration ?? [] }
+  return { ...data, caption: data.caption ?? '', decoration: data.decoration ?? [] }
 }
 
 export async function updateTape(
   id: string,
-  patch: Partial<Pick<Tape, 'title' | 'decoration'>>,
+  patch: Partial<Pick<Tape, 'title' | 'caption' | 'decoration'>>,
 ) {
   const { error } = await supabase
     .from('tapes')

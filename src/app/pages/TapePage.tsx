@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { AnimatePresence, Reorder, useDragControls } from 'motion/react'
-import svgPaths from '../../imports/Main-1/svg-l1aok5pcy5'
-import BtnControl from '../../imports/BtnControl/BtnControl'
-import IconBack from '../../imports/IconBack-1/IconBack'
-import IconDelete from '../../imports/IconDelete-1/IconDelete'
-import Item from '../../imports/Item-2/Item-19-1743'
 import {
   deleteSegment as deleteSegmentDb,
   deleteTape,
@@ -21,19 +16,36 @@ import type { Segment, Sticker, Tape } from '../../lib/types'
 import { useRecorder } from '../../hooks/useRecorder'
 import { usePlayer } from '../../hooks/usePlayer'
 import MobileFrame from '../components/MobileFrame'
-import CassetteFace from '../components/CassetteFace'
+import PlayerControls, { type ControlType } from '../components/PlayerControls'
+import VuMeter from '../components/VuMeter'
+import SegmentItem from '../components/SegmentItem'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
+import icBack from '../../assets/ic_back.svg'
+import icMore from '../../assets/ic_more.svg'
+import imgPlayerBody from '../../assets/img_player_body.png'
+import imgCassette from '../../assets/img_cassette_simple_3.png'
 
 const MAX_TAPE_SECONDS = 30 * 60
-const MAX_TITLE_LENGTH = 10
+/** 카세트 라벨에 노출되는 사용자 문구의 최대 글자 수 */
+const MAX_CAPTION_LENGTH = 15
+/** 문구 미입력 시 카세트 라벨에 보여줄 안내 문구 */
+const CAPTION_PLACEHOLDER = '최대글자수는열두자입니다'
 
-function formatTime(totalSeconds: number): string {
+/** MM:SS 형식 (예: 510초 → "08:30") */
+function formatClock(totalSeconds: number): string {
   const safe = Math.max(0, Math.floor(totalSeconds))
   const m = Math.floor(safe / 60)
   const s = safe % 60
-  return `${String(m).padStart(2, '0')}분 ${String(s).padStart(2, '0')}초`
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-type ButtonType = 'rew' | 'stop' | 'play' | 'rec' | 'ff'
+const TOTAL_CLOCK = formatClock(MAX_TAPE_SECONDS) // "30:00"
 
 export default function TapePage() {
   const { id } = useParams<{ id: string }>()
@@ -43,14 +55,12 @@ export default function TapePage() {
   const [segments, setSegments] = useState<Segment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [pressedButton, setPressedButton] = useState<ButtonType | null>(null)
+  const [pressedButton, setPressedButton] = useState<ControlType | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [recIntent, setRecIntent] = useState(false)
-  const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null)
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [titleDraft, setTitleDraft] = useState('')
+  const [, setSwipeOpenId] = useState<string | null>(null)
   const [stickers, setStickers] = useState<Sticker[]>([])
 
   const recorder = useRecorder()
@@ -118,7 +128,6 @@ export default function TapePage() {
   const liveSeconds = recorder.isRecording
     ? Math.min(MAX_TAPE_SECONDS, totalAtRecStartRef.current + recorder.elapsedSeconds)
     : totalSeconds
-  const headerTime = `${formatTime(liveSeconds)} / 30분`
 
   const reelSpinning = recorder.isRecording || recIntent || !!player.playingId
 
@@ -240,7 +249,7 @@ export default function TapePage() {
     [player, segments],
   )
 
-  const handleButtonAction = (type: ButtonType) => {
+  const handleButtonAction = (type: ControlType) => {
     if (type === 'rec') {
       if (recorder.isRecording) return
       void startRecording()
@@ -257,7 +266,9 @@ export default function TapePage() {
     }
     if (type === 'play') {
       if (recorder.isRecording) return
-      playFrom(currentIndex)
+      // 항상 제일 처음 녹음부터 전체 구간을 순서대로 재생
+      setCurrentIndex(0)
+      playFrom(0)
       return
     }
     if (type === 'rew') {
@@ -272,28 +283,6 @@ export default function TapePage() {
       const next = Math.min(Math.max(0, segments.length - 1), currentIndex + 1)
       setCurrentIndex(next)
       if (player.playingId) playFrom(next)
-    }
-  }
-
-  const beginEditTitle = () => {
-    if (!tape) return
-    setTitleDraft(tape.title)
-    setEditingTitle(true)
-  }
-
-  const commitTitle = async () => {
-    if (!tape) {
-      setEditingTitle(false)
-      return
-    }
-    const trimmed = titleDraft.trim().slice(0, MAX_TITLE_LENGTH)
-    setEditingTitle(false)
-    if (!trimmed || trimmed === tape.title) return
-    setTape({ ...tape, title: trimmed })
-    try {
-      await updateTape(tape.id, { title: trimmed })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update title')
     }
   }
 
@@ -327,7 +316,7 @@ export default function TapePage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-[#000000] flex items-center justify-center text-[#888] font-['Sometype_Mono',monospace] text-[14px]">
+      <div className="flex min-h-dvh items-center justify-center bg-[#f5f3f1] font-mix text-[14px] text-[#888]">
         loading...
       </div>
     )
@@ -335,11 +324,11 @@ export default function TapePage() {
 
   if (error && !tape) {
     return (
-      <div className="min-h-dvh bg-[#000000] flex flex-col items-center justify-center gap-[16px] text-[#E1E1E1]">
-        <p className="font-['MaruBuri',sans-serif] text-[14px]">{error}</p>
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-[16px] bg-[#f5f3f1] text-[#222]">
+        <p className="font-mix text-[14px]">{error}</p>
         <button
           onClick={() => navigate('/')}
-          className="bg-[#e1e1e1] text-[#111] px-[16px] py-[8px] rounded-[8px] font-['MaruBuriBold',sans-serif] text-[13px]"
+          className="rounded-[8px] bg-[#222] px-[16px] py-[8px] font-mix text-[13px] text-white"
         >
           돌아가기
         </button>
@@ -347,143 +336,139 @@ export default function TapePage() {
     )
   }
 
-  const buttons: { type: ButtonType; label: string }[] = [
-    { type: 'rew', label: 'rew' },
-    { type: 'stop', label: 'stop' },
-    { type: 'play', label: 'play' },
-    { type: 'rec', label: 'rec' },
-    { type: 'ff', label: 'ff' },
-  ]
+  const activeTypes: Partial<Record<ControlType, boolean>> = {
+    rew: pressedButton === 'rew',
+    stop: pressedButton === 'stop',
+    play: !!player.playingId,
+    rec: recIntent,
+    ff: pressedButton === 'ff',
+  }
 
   return (
-    <MobileFrame>
-        <div
-          className="shrink-0"
-          style={{ height: 'max(env(safe-area-inset-top), 12px)' }}
+    <MobileFrame innerClassName="bg-[#f5f3f1] text-[#222]">
+      {/* ===== 상단 플레이어 데크 ===== */}
+      <div className="relative w-full shrink-0">
+        {/* 데크 본체: 393 폭에 맞춰 fill (높이 554). 검은 카세트 창·그릴 베이크됨 */}
+        <img
+          src={imgPlayerBody}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none block w-full select-none"
         />
 
-        <div className="flex items-center h-[64px] px-[12px] shrink-0 bg-[#171717] z-10">
-          <button
-            onClick={() => navigate('/')}
-            className="size-[40px] shrink-0 flex items-center justify-center"
-          >
-            <IconBack />
-          </button>
-          {editingTitle ? (
-            <input
-              type="text"
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value.slice(0, MAX_TITLE_LENGTH))}
-              maxLength={MAX_TITLE_LENGTH}
-              autoFocus
-              onFocus={(e) => e.currentTarget.select()}
-              onBlur={commitTitle}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  ;(e.target as HTMLInputElement).blur()
-                } else if (e.key === 'Escape') {
-                  setEditingTitle(false)
-                }
-              }}
-              className="flex-1 bg-transparent font-['Sometype_Mono',monospace] leading-[27px] text-[18px] text-[#e1e1e1] text-center outline-none"
-            />
-          ) : (
-            <p
-              onClick={beginEditTitle}
-              className="flex-1 font-['Sometype_Mono',monospace] leading-[27px] text-[18px] text-[#e1e1e1] text-center cursor-text"
-            >
-              {tape?.title ?? 'tape'}
-            </p>
-          )}
-          <button
-            onClick={handleDeleteTape}
-            className="size-[40px] shrink-0 flex items-center justify-center"
-          >
-            <IconDelete />
-          </button>
+        {/* 상태바 영역 (목업) */}
+        <div className="absolute inset-x-0 top-0 flex h-[44px] items-center justify-between px-[24px]">
+          <span className="font-mix text-[15px] text-[#222]">9:41</span>
         </div>
 
-        <div className="flex-1 relative overflow-hidden">
-          <div className="absolute inset-0 overflow-y-auto overflow-x-hidden">
-            <div
-              style={{ paddingBottom: 'calc(148px + env(safe-area-inset-bottom))' }}
+        {/* 헤더: 뒤로 / 제목(편집) / 더보기 */}
+        <header className="absolute inset-x-0 top-[44px] flex h-[64px] items-center gap-[10px] px-[16px]">
+          <button
+            onClick={() => navigate('/')}
+            className="flex size-[40px] shrink-0 items-center justify-center"
+            aria-label="뒤로"
+          >
+            <img src={icBack} alt="" className="size-[24px]" />
+          </button>
+          <div className="min-w-px flex-1" aria-hidden />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex size-[36px] shrink-0 items-center justify-center outline-none" aria-label="더보기">
+                <img src={icMore} alt="" className="size-[24px]" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-[160px] border-[#e5e0d8] bg-white font-mix text-[#222]"
             >
-            <div className="flex justify-center w-full h-[232px] items-center">
-              <CassetteFace
-                stickers={stickers}
-                spinning={reelSpinning}
-                overlay={
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/tape/${id}/decorate`)}
-                    className="absolute top-[8px] right-[8px] z-20 flex h-[28px] items-center gap-[4px] rounded-full bg-[#171717]/85 px-[12px] font-['Sometype_Mono',monospace] text-[12px] text-[#e1e1e1] backdrop-blur-sm"
-                  >
-                    꾸미기
-                  </button>
-                }
-              />
-            </div>
+              <DropdownMenuItem
+                onSelect={() => {
+                  /* 카세트 바꾸기 — 추후 구현 예정 */
+                }}
+                className="cursor-pointer text-[14px] focus:bg-[#f0ece4]"
+              >
+                카세트 바꾸기
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-[#e5e0d8]" />
+              <DropdownMenuItem
+                onSelect={() => void handleDeleteTape()}
+                className="cursor-pointer text-[14px] text-[#C4383F] focus:bg-[#fceaea] focus:text-[#C4383F]"
+              >
+                삭제
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </header>
 
-            <div className="flex justify-center w-full py-[10px]">
-              <div className="flex items-center justify-between w-[353px]">
-                {buttons.map((btn) => (
-                  <BtnControl
-                    key={btn.type}
-                    type={btn.type}
-                    label={btn.label}
-                    isPressed={
-                      (btn.type === 'rec' && recIntent) ||
-                      (btn.type === 'play' && !!player.playingId) ||
-                      (pressedButton === btn.type && btn.type !== 'rec')
-                    }
-                    onPress={() => {
-                      setPressedButton(btn.type)
-                      handleButtonAction(btn.type)
-                    }}
-                    onRelease={() => setPressedButton(null)}
-                    className="h-[74px] overflow-clip relative rounded-[8px] shrink-0 w-[70px] cursor-pointer"
-                  />
-                ))}
+        {/* 카세트 이미지 + 사용자 문구 라벨 (헤더 바로 아래 y108, 가로 fill = 393×232) */}
+        <div className="pointer-events-none absolute left-0 top-[98px] w-full">
+          <img src={imgCassette} alt="" aria-hidden draggable={false} className="block w-full select-none" />
+          {/* 문구: 카세트 레퍼런스 기준 x center / y 50, 최대 15자 (Figma: BM 꾸불림체 18px). 미입력 시 안내 문구 */}
+          {tape ? (
+            <p className="absolute inset-x-0 top-[50px] whitespace-nowrap text-center font-['BM_Kkubulim'] text-[18px] leading-normal text-black">
+              {(tape.caption.trim() ? tape.caption : CAPTION_PLACEHOLDER).slice(0, MAX_CAPTION_LENGTH)}
+            </p>
+          ) : null}
+        </div>
+
+        {/* VU 미터 */}
+        <VuMeter
+          stream={recorder.stream}
+          audioEl={player.audioEl}
+          className="absolute left-[37px] top-[331px] h-[46px] w-[82px]"
+        />
+
+        {/* 컨트롤 키캡 */}
+        <PlayerControls
+          activeTypes={activeTypes}
+          onPress={(type) => {
+            setPressedButton(type)
+            handleButtonAction(type)
+          }}
+          onRelease={() => setPressedButton(null)}
+          className="absolute left-1/2 top-[381px] -translate-x-1/2"
+        />
+      </div>
+
+      {/* ===== 녹음 구간 리스트 (스크롤) — 데크 본체와 항상 20px 겹침 ===== */}
+      <div className="relative z-10 -mt-[20px] flex-1 overflow-hidden">
+        <div className="absolute inset-0 overflow-y-auto overflow-x-hidden">
+          <div style={{ paddingBottom: 'calc(140px + env(safe-area-inset-bottom))' }}>
+            {/* 리스트 헤더 (Figma node 101:10430: px-24 py-10, 38px) */}
+            <div className="flex items-center justify-between px-[24px] py-[10px]">
+              <p className="font-mix text-[12px] uppercase leading-[16px] text-[#888]">녹음 구간</p>
+              <div className="flex items-center gap-[8px]">
+                <span className="text-right font-mix text-[12px] leading-[18px] text-[#111]">
+                  {formatClock(liveSeconds)}
+                </span>
+                <span className="h-[11px] w-px bg-[#c9c4bb]" />
+                <span className="text-right font-mix text-[12px] leading-[18px] text-[#888]">{TOTAL_CLOCK}</span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-[10px] items-start w-full">
-              <div className="h-[24px] w-full px-[20px]">
-                <div className="flex items-center justify-between px-[4px] size-full">
-                  <p className="font-['MaruBuri',sans-serif] leading-[16px] text-[#888] text-[12px] uppercase">
-                    녹음 구간
-                  </p>
-                  <p className="font-['Sometype_Mono',monospace] leading-[16px] text-[#888] text-[12px] text-right tracking-[1.2px] uppercase">
-                    {headerTime}
-                  </p>
-                </div>
-              </div>
+            <div className="flex flex-col gap-[8px] px-[20px]">
               {segments.length === 0 ? (
-                <div className="w-full px-[20px]">
-                  <div className="bg-[#1c1c1c] h-[184px] rounded-[8px] flex items-center justify-center w-full">
-                    <p className="font-['MaruBuri',sans-serif] font-normal leading-normal text-[#515151] text-[14px] whitespace-nowrap">
-                      기록하고 싶은 순간을 모아보세요
-                    </p>
-                  </div>
+                <div className="flex h-[184px] w-full items-center justify-center rounded-[8px] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+                  <p className="font-mix text-[14px] text-[#b3aea6]">
+                    기록하고 싶은 순간을 모아보세요
+                  </p>
                 </div>
               ) : (
-                <Reorder.Group
-                  axis="y"
-                  values={segments}
-                  onReorder={handleReorder}
-                  className="flex flex-col gap-[8px] w-full"
-                >
+                <Reorder.Group axis="y" values={segments} onReorder={handleReorder} className="flex flex-col gap-[8px]">
                   <AnimatePresence initial={false}>
                     {segments.map((segment, index) => {
                       const focused =
                         player.playingId === segment.id ||
                         (!player.playingId && focusedIndex === index)
+                      const anyFocused = !!player.playingId || focusedIndex !== null
                       return (
                         <SegmentRow
                           key={segment.id}
                           segment={segment}
                           index={index}
                           focused={focused}
+                          dimmed={anyFocused && !focused}
                           onDelete={() => handleDeleteSegment(segment.id)}
                           onChange={(value) => handleSegmentMessage(segment.id, value)}
                           onTap={() => {
@@ -522,40 +507,30 @@ export default function TapePage() {
                   </AnimatePresence>
                 </Reorder.Group>
               )}
-              {error && (
-                <p className="px-[20px] text-[#C4383F] text-[12px] font-['MaruBuri',sans-serif]">
-                  {error}
-                </p>
-              )}
-            </div>
-            </div>
-          </div>
-
-          <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-            <div
-              className="h-[36px] w-full"
-              style={{
-                background: 'linear-gradient(to bottom, rgba(23, 23, 23, 0) 0%, #171717 100%)',
-              }}
-            />
-            <div
-              className="bg-[#171717] flex flex-col items-start pt-[24px] px-[20px] pointer-events-auto w-full"
-              style={{
-                paddingBottom: 'max(32px, env(safe-area-inset-bottom))',
-              }}
-            >
-              <button
-                onClick={handleFinishTape}
-                disabled={saving || segments.length === 0}
-                className="bg-[#e1e1e1] disabled:bg-[#555555] h-[56px] rounded-[8px] w-full relative"
-              >
-                <p className="absolute left-1/2 -translate-x-1/2 font-['MaruBuriBold',sans-serif] leading-normal text-[#111] text-[16px] text-center top-[17.25px]">
-                  {saving ? '저장 중...' : '전달하기'}
-                </p>
-              </button>
+              {error && <p className="font-mix text-[12px] text-[#C4383F]">{error}</p>}
             </div>
           </div>
         </div>
+
+        {/* ===== 하단 전달하기 버튼 ===== */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0">
+          <div className="h-[30px] w-full bg-gradient-to-b from-[rgba(245,243,241,0)] to-[#f5f3f1]" />
+          <div
+            className="pointer-events-auto flex w-full flex-col items-center bg-[#f5f3f1] px-[20px] pt-[20px]"
+            style={{ paddingBottom: 'max(34px, env(safe-area-inset-bottom))' }}
+          >
+            <button
+              onClick={handleFinishTape}
+              disabled={saving || segments.length === 0}
+              className="flex h-[56px] w-full items-center justify-center rounded-[8px] bg-[#222] disabled:bg-[#bdb8b0]"
+            >
+              <span className="font-mix text-[18px] leading-[25.5px] text-white">
+                {saving ? '저장 중...' : '보내기'}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
     </MobileFrame>
   )
 }
@@ -564,6 +539,7 @@ interface SegmentRowProps {
   segment: Segment
   index: number
   focused: boolean
+  dimmed: boolean
   onDelete: () => void
   onChange: (value: string) => void
   onTap: () => void
@@ -576,6 +552,7 @@ function SegmentRow({
   segment,
   index,
   focused,
+  dimmed,
   onDelete,
   onChange,
   onTap,
@@ -592,11 +569,12 @@ function SegmentRow({
       dragControls={dragControls}
       exit={{ x: -440, opacity: 0, transition: { duration: 0.25, ease: 'easeIn' } }}
     >
-      <Item
+      <SegmentItem
         count={(index + 1).toString()}
         message={segment.message}
-        duration={formatTime(segment.duration_seconds)}
+        duration={formatClock(segment.duration_seconds)}
         isFocused={focused}
+        dimmed={dimmed}
         onDelete={onDelete}
         onChange={onChange}
         onTap={onTap}

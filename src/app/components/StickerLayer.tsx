@@ -16,6 +16,10 @@ const SHADOW_APPLIED = 'drop-shadow(0 1px 1px rgba(0,0,0,0.45))'
 // 적용 후 스티커를 살짝 무광·반투명하게 → 카세트 표면 질감이 비치고 채도가 가라앉아 묻힌다.
 const MATTE_FILTER = 'saturate(0.95) brightness(0.98)'
 const STICKER_OPACITY_APPLIED = 0.96
+// 적용 후 스티커 표면 광택/음영. overlay 블렌드 → 흰색은 밝게, 검은색은 어둡게.
+// 좌상단 하이라이트 → 중앙 무광 → 우하단 옅은 음영(카세트 광원 방향과 일치).
+const SHEEN_GRADIENT =
+  'linear-gradient(135deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.08) 22%, rgba(255,255,255,0) 46%, rgba(0,0,0,0.18) 100%)'
 
 // ── 라이팅 트랜스퍼: 카세트의 실제 빛/그림자를 스티커 위로 옮겨 입힌다 ──
 // 스티커마다 "그 자리의 카세트 픽셀"을 soft-light로 합성해, 카세트 어두운 곳의
