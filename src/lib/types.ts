@@ -20,6 +20,8 @@ export interface Tape {
   title: string
   /** 카세트 라벨에 노출되는 사용자 문구 (최대 15자). 생성/수정 화면에서 입력 */
   caption: string
+  /** 선택한 카세트 디자인 id (cassetteDesigns: simple_1/2/3, kitch_1/2) */
+  design: string
   decoration: Sticker[]
   created_at: string
   updated_at: string

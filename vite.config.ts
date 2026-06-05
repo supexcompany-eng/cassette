@@ -19,4 +19,10 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+
+  server: {
+    host: true,
+    // cloudflare 임시 터널(https) 호스트 허용 (모바일 PWA 테스트용)
+    allowedHosts: ['.trycloudflare.com'],
+  },
 })

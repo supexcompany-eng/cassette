@@ -1,0 +1,16 @@
+{
+  "appId": "com.supex.cassette",
+  "appName": "Cassette",
+  "webDir": "dist",
+  "backgroundColor": "#c0bdba",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#c0bdba"
+  },
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "LIGHT"
+    }
+  }
+}

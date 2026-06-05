@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion, useMotionValue, type PanInfo } from 'motion/react'
+import { animate, motion, useMotionValue, type PanInfo } from 'motion/react'
 
 interface SegmentItemProps {
+  segId?: string
   count: string
   message: string
   duration: string
@@ -16,9 +17,11 @@ interface SegmentItemProps {
   onLongPress?: (event: PointerEvent) => void
 }
 
-const DELETE_WIDTH = 55
+// 카드가 열릴 때 왼쪽으로 이동하는 거리. 삭제버튼(40, 우측 마진 20px) + 여백 10px 기준
+const DELETE_WIDTH = 50
 const OPEN_THRESHOLD = -DELETE_WIDTH / 2
 const VELOCITY_THRESHOLD = -500
+const SWIPE_SPRING = { type: 'spring' as const, stiffness: 500, damping: 40, mass: 0.8 }
 
 /**
  * 재생화면 녹음 구간 리스트의 흰색 카드 항목.
@@ -26,6 +29,7 @@ const VELOCITY_THRESHOLD = -500
  * 밝은(크림) 테마로 재스타일했다. (Figma node 101:10436)
  */
 export default function SegmentItem({
+  segId,
   count,
   message,
   duration,
@@ -78,12 +82,17 @@ export default function SegmentItem({
     }
   }
 
+  // 외부 닫힘(다른 항목 스와이프/바깥 탭 등)으로 isOpen이 바뀌면 스냅
+  useEffect(() => {
+    const controls = animate(x, isOpen ? -DELETE_WIDTH : 0, SWIPE_SPRING)
+    return controls.stop
+  }, [isOpen, x])
+
   const handleDragEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.x < OPEN_THRESHOLD || info.velocity.x < VELOCITY_THRESHOLD) {
-      setIsOpen(true)
-    } else {
-      setIsOpen(false)
-    }
+    const shouldOpen = info.offset.x < OPEN_THRESHOLD || info.velocity.x < VELOCITY_THRESHOLD
+    // 놓는 즉시 항상 완전히 열림/닫힘으로 스냅 (iOS 기본 동작 — 중간 상태 없음)
+    animate(x, shouldOpen ? -DELETE_WIDTH : 0, SWIPE_SPRING)
+    setIsOpen(shouldOpen)
   }
 
   const handleItemClick = () => {
@@ -98,8 +107,8 @@ export default function SegmentItem({
     <div
       ref={itemRef}
       className={[
-        'relative h-[56px] w-full overflow-hidden rounded-[8px] transition-opacity duration-150',
-        // 섀도우는 클리핑 컨테이너(루트) 자체에 적용 — overflow-hidden은 자식만 자르고 루트 자신의 box-shadow는 안 자른다
+        'relative h-[56px] w-full rounded-[8px] transition-opacity duration-150',
+        // overflow-hidden 제거 — 스와이프된 카드가 왼쪽 마진에 안 잘리고 화면 끝(스크롤 컨테이너 x0)까지 블리드되도록
         isReordering
           ? 'shadow-[0_6px_16px_rgba(0,0,0,0.18)]'
           : isFocused
@@ -109,6 +118,7 @@ export default function SegmentItem({
       ].join(' ')}
       data-name="item"
       data-segment-item="true"
+      data-seg-id={segId}
       onPointerDown={(e) => {
         const target = e.target as HTMLElement
         if (target.tagName === 'INPUT') return
@@ -128,8 +138,8 @@ export default function SegmentItem({
         setIsReordering(false)
       }}
     >
-      {/* 삭제 버튼 (스와이프 시 노출) */}
-      <div className="absolute right-[20px] top-1/2 size-[40px] -translate-y-1/2">
+      {/* 삭제 버튼 (스와이프 시 노출) — 우측 마진 20px (=아이템 오른쪽 끝, 리스트가 이미 20px inset) */}
+      <div className="absolute right-0 top-1/2 size-[40px] -translate-y-1/2">
         <button
           onClick={(e) => {
             e.stopPropagation()
@@ -138,7 +148,7 @@ export default function SegmentItem({
           className="relative flex size-[40px] items-center justify-center"
           aria-label="삭제"
         >
-          <span className="absolute inset-0 rounded-full bg-[#C4383F]" />
+          <span className="absolute inset-0 rounded-full bg-[#F54C4C]" />
           <svg className="relative size-[20px]" fill="none" viewBox="0 0 20 20" aria-hidden>
             <path d="M3.75 6.11109H16.25" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" />
             <path
@@ -174,8 +184,6 @@ export default function SegmentItem({
         }}
         onDragEnd={handleDragEnd}
         onClick={handleItemClick}
-        animate={{ x: isOpen ? -DELETE_WIDTH : 0 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.8 }}
         style={{ x }}
         className="absolute left-0 right-0 top-0 flex h-[56px] touch-pan-y items-center gap-[12px] rounded-[8px] bg-white px-[17px]"
       >

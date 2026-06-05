@@ -124,8 +124,13 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
   body {
-    @apply bg-background text-foreground;
+    /* 앱(standalone) 상태바 영역·여백까지 페이지 크림색으로 확장 */
+    background-color: #f5f3f1;
+    /* 스크롤 없을 때 위아래 잡아당김(고무줄) 제거 */
+    overscroll-behavior: none;
+    @apply text-foreground;
     font-family: 'MaruBuri', 'Sometype Mono', monospace;
   }
 

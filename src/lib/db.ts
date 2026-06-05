@@ -22,6 +22,7 @@ export async function listTapesWithStats(): Promise<TapeWithStats[]> {
       id: row.id,
       title: row.title,
       caption: row.caption ?? '',
+      design: row.design ?? 'simple_3',
       decoration: row.decoration ?? [],
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -37,25 +38,27 @@ export async function listTapesWithStats(): Promise<TapeWithStats[]> {
 export async function getTape(id: string): Promise<Tape | null> {
   const { data, error } = await supabase.from('tapes').select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return data ? { ...data, caption: data.caption ?? '', decoration: data.decoration ?? [] } : null
+  return data
+    ? { ...data, caption: data.caption ?? '', design: data.design ?? 'simple_3', decoration: data.decoration ?? [] }
+    : null
 }
 
-export async function createTape(title?: string): Promise<Tape> {
+export async function createTape(opts?: { caption?: string; design?: string }): Promise<Tape> {
   const { count } = await supabase.from('tapes').select('*', { count: 'exact', head: true })
   const nextNumber = (count ?? 0) + 1
   const defaultTitle = `tape ${String(nextNumber).padStart(2, '0')}`
   const { data, error } = await supabase
     .from('tapes')
-    .insert({ title: title ?? defaultTitle })
+    .insert({ title: defaultTitle, caption: opts?.caption ?? '', design: opts?.design ?? 'simple_3' })
     .select()
     .single()
   if (error) throw error
-  return { ...data, caption: data.caption ?? '', decoration: data.decoration ?? [] }
+  return { ...data, caption: data.caption ?? '', design: data.design ?? 'simple_3', decoration: data.decoration ?? [] }
 }
 
 export async function updateTape(
   id: string,
-  patch: Partial<Pick<Tape, 'title' | 'caption' | 'decoration'>>,
+  patch: Partial<Pick<Tape, 'title' | 'caption' | 'design' | 'decoration'>>,
 ) {
   const { error } = await supabase
     .from('tapes')
