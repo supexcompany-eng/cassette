@@ -64,7 +64,7 @@ export default async function handler(req, res) {
   const id = searchParams.get('id') || ''
 
   const tape = await fetchTape(id)
-  const caption = (tape && tape.caption ? tape.caption : '').slice(0, 15)
+  const caption = (tape && tape.caption ? tape.caption : '').slice(0, 13)
   const design = (tape && tape.design) || 'simple_3'
   const label = LABELS[design] || LABELS.simple_3
 

@@ -1,28 +1,10 @@
-export interface Sticker {
-  id: string
-  /** 'preset' = 앱 제공 스티커(에셋 키), 'image' = 클립보드 붙여넣기로 업로드된 이미지(스토리지 경로) */
-  kind: 'preset' | 'image'
-  /** kind에 따라 프리셋 키 또는 스토리지 경로 */
-  src: string
-  /** 카세트 박스 기준 정규화된 중심 좌표 (0~1) */
-  x: number
-  y: number
-  /** 기본 크기(80px) 대비 배율 */
-  scale: number
-  /** 회전 각도(degree) */
-  rotation: number
-  /** 겹침 순서 */
-  z: number
-}
-
 export interface Tape {
   id: string
   title: string
-  /** 카세트 라벨에 노출되는 사용자 문구 (최대 15자). 생성/수정 화면에서 입력 */
+  /** 카세트 라벨에 노출되는 사용자 문구 (최대 13자). 생성/수정 화면에서 입력 */
   caption: string
   /** 선택한 카세트 디자인 id (cassetteDesigns: simple_1/2/3, kitch_1/2) */
   design: string
-  decoration: Sticker[]
   created_at: string
   updated_at: string
   /** 공유 쪽지 — 보내기 시점에 저장. 미전송 테이프는 null */

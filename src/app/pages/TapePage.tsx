@@ -13,7 +13,7 @@ import {
 } from '../../lib/db'
 import { deleteAudio, getAudioUrl, uploadAudio } from '../../lib/storage'
 import { shareTape, SHARE_BASE_URL } from '../../lib/share'
-import type { Segment, Sticker, Tape } from '../../lib/types'
+import type { Segment, Tape } from '../../lib/types'
 import { useRecorder } from '../../hooks/useRecorder'
 import { usePlayer } from '../../hooks/usePlayer'
 import MobileFrame from '../components/MobileFrame'
@@ -71,7 +71,6 @@ export default function TapePage() {
   const [saving, setSaving] = useState(false)
   const [recIntent, setRecIntent] = useState(false)
   const [, setSwipeOpenId] = useState<string | null>(null)
-  const [stickers, setStickers] = useState<Sticker[]>([])
   const [deckH, setDeckH] = useState(544) // 데크(body) 시각 높이(=natural*scale) — 리스트 상단 여백/마스크 위치 기준
   const [scale, setScale] = useState(1) // 플레이어 확대 배율 (폭/393, 태블릿 상한에서 고정)
   const [collapseP, setCollapseP] = useState(0) // 0=펼침, 1=완전히 접힘 (수동 스크롤로만 변함)
@@ -104,7 +103,6 @@ export default function TapePage() {
         } else {
           setTape(t)
           setSegments(s)
-          setStickers(t.decoration ?? [])
         }
       })
       .catch((e) => {

@@ -1,4 +1,6 @@
 @import 'tailwindcss' source(none);
-@source '../**/*.{js,ts,jsx,tsx}';
-
-@import 'tw-animate-css';
+/* 실제 사용 코드만 스캔 (죽은 코드 제외로 CSS 경량화) */
+@source '../app/**/*.{ts,tsx}';
+@source '../hooks/**/*.{ts,tsx}';
+@source '../lib/**/*.{ts,tsx}';
+@source '../main.tsx';

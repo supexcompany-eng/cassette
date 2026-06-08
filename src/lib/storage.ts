@@ -1,7 +1,6 @@
 import { supabase } from './supabase'
 
 const BUCKET = 'tape-audio'
-const STICKER_BUCKET = 'tape-stickers'
 
 export async function uploadAudio(tapeId: string, blob: Blob, ext = 'webm'): Promise<string> {
   const path = `${tapeId}/${crypto.randomUUID()}.${ext}`
@@ -20,25 +19,5 @@ export function getAudioUrl(path: string): string {
 
 export async function deleteAudio(path: string) {
   const { error } = await supabase.storage.from(BUCKET).remove([path])
-  if (error) throw error
-}
-
-export async function uploadSticker(tapeId: string, blob: Blob, ext = 'png'): Promise<string> {
-  const path = `${tapeId}/${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage.from(STICKER_BUCKET).upload(path, blob, {
-    contentType: blob.type || `image/${ext}`,
-    upsert: false,
-  })
-  if (error) throw error
-  return path
-}
-
-export function getStickerUrl(path: string): string {
-  const { data } = supabase.storage.from(STICKER_BUCKET).getPublicUrl(path)
-  return data.publicUrl
-}
-
-export async function deleteSticker(path: string) {
-  const { error } = await supabase.storage.from(STICKER_BUCKET).remove([path])
   if (error) throw error
 }
