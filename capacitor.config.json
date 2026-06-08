@@ -3,6 +3,9 @@
   "appName": "Cassette",
   "webDir": "dist",
   "backgroundColor": "#c0bdba",
+  "server": {
+    "iosScheme": "https"
+  },
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#c0bdba"

@@ -7,10 +7,26 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no"
     />
     <meta name="theme-color" content="#f5f3f1" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Cassette Tape App</title>
+    <title>Cassette</title>
+
+    <!-- 앱(루트) 공유 시 OG 미리보기 — 개별 카세트(/s/:id)는 서버에서 별도 주입 -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Cassette" />
+    <meta property="og:title" content="Cassette" />
+    <meta property="og:description" content="목소리를 카세트에 담아 보내요" />
+    <meta property="og:image" content="https://cassette-tape-app.vercel.app/og/app.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:url" content="https://cassette-tape-app.vercel.app/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cassette" />
+    <meta name="twitter:description" content="목소리를 카세트에 담아 보내요" />
+    <meta name="twitter:image" content="https://cassette-tape-app.vercel.app/og/app.png" />
     <style>
       /* 스플래시 배경색과 동일 — 네이티브 런치스크린→WebView 로딩 사이 흰 깜빡임 제거 */
       html,

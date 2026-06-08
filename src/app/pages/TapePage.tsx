@@ -12,6 +12,7 @@ import {
   updateTape,
 } from '../../lib/db'
 import { deleteAudio, getAudioUrl, uploadAudio } from '../../lib/storage'
+import { shareTape, SHARE_BASE_URL } from '../../lib/share'
 import type { Segment, Sticker, Tape } from '../../lib/types'
 import { useRecorder } from '../../hooks/useRecorder'
 import { usePlayer } from '../../hooks/usePlayer'
@@ -19,10 +20,12 @@ import MobileFrame from '../components/MobileFrame'
 import PlayerControls, { type ControlType } from '../components/PlayerControls'
 import VuMeter from '../components/VuMeter'
 import SegmentItem from '../components/SegmentItem'
+import NoteComposeSheet, { type NoteValues } from '../components/NoteComposeSheet'
+import SharePreview from '../components/SharePreview'
 import { ChevronRight } from 'lucide-react'
 import icBack from '../../assets/ic_back.svg'
 import icMore from '../../assets/ic_more.svg'
-import imgPlayerBody from '../../assets/img_player_body.png'
+import imgPlayerBody from '../../assets/img_player_body_default.png'
 import imgCassetteBg from '../../assets/img_player_cassettebg.png'
 import imgHole from '../../assets/img_player_hole.png'
 import CassetteView from '../components/CassetteView'
@@ -64,6 +67,7 @@ export default function TapePage() {
   const [pressedButton, setPressedButton] = useState<ControlType | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
+  const [reorderingId, setReorderingId] = useState<string | null>(null) // 순서변경(롱프레스 드래그) 중인 항목
   const [saving, setSaving] = useState(false)
   const [recIntent, setRecIntent] = useState(false)
   const [, setSwipeOpenId] = useState<string | null>(null)
@@ -72,6 +76,9 @@ export default function TapePage() {
   const [scale, setScale] = useState(1) // 플레이어 확대 배율 (폭/393, 태블릿 상한에서 고정)
   const [collapseP, setCollapseP] = useState(0) // 0=펼침, 1=완전히 접힘 (수동 스크롤로만 변함)
   const [moreOpen, setMoreOpen] = useState(false) // 더보기 바텀시트
+  // 공유 흐름: none → compose(쪽지쓰기) → preview(미리보기) ↔ editNote(쪽지수정)
+  const [shareStep, setShareStep] = useState<'none' | 'compose' | 'preview' | 'editNote'>('none')
+  const [noteValues, setNoteValues] = useState<NoteValues>({ to: '', note: '', from: '' })
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false) // 삭제 확인 다이얼로그
 
   const recorder = useRecorder()
@@ -80,7 +87,6 @@ export default function TapePage() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const deckWrapRef = useRef<HTMLDivElement>(null)
   const bodyImgRef = useRef<HTMLImageElement>(null)
-  const touchStartYRef = useRef(0) // collapse 제스처 판정용
   const playQueueRef = useRef<{ stop: boolean }>({ stop: false })
   const editTimersRef = useRef<Map<string, number>>(new Map())
   const totalAtRecStartRef = useRef(0)
@@ -176,23 +182,51 @@ export default function TapePage() {
     return () => window.removeEventListener('resize', measureDeck)
   }, [measureDeck])
 
-  // 수동 제스처(휠/터치)로만 collapse 토글 — 항목 수와 무관하게 즉시 스냅.
-  // 위로 스크롤/스와이프 = 접힘, 맨 위에서 아래로 = 펼침. (자동 재생 스크롤은 제스처가 아니라 영향 없음)
-  const collapseByGesture = (dir: 'up' | 'down') => {
-    if (dir === 'up') setCollapseP(1)
-    else if ((scrollRef.current?.scrollTop ?? 0) <= 0) setCollapseP(0)
+  // 펼침 상태: 리스트를 위로 스와이프하면 접힘 / 아래로 끌면 접지 않고 리스트가 스크롤.
+  // (펼침일 땐 overflow hidden이라 아래 끌기는 수동 스크롤로 처리. 접힌 상태에선 네이티브 스크롤)
+  const listTouchYRef = useRef(0) // 제스처 시작 Y (접힘 판정)
+  const lastTouchYRef = useRef(0) // 직전 Y (증분 스크롤)
+  const onListWheel = (e: { deltaY: number }) => {
+    if (reorderingId) return
+    if (collapseP === 0 && e.deltaY < -SCROLL_TRIGGER) setCollapseP(1) // 위로 → 접힘
   }
-  const onWheel = (e: { deltaY: number }) => {
-    if (e.deltaY > SCROLL_TRIGGER) collapseByGesture('up')
-    else if (e.deltaY < -SCROLL_TRIGGER) collapseByGesture('down')
+  const onListTouchStart = (e: { touches: ArrayLike<{ clientY: number }> }) => {
+    listTouchYRef.current = e.touches[0]?.clientY ?? 0
+    lastTouchYRef.current = listTouchYRef.current
   }
-  const onTouchStart = (e: { touches: ArrayLike<{ clientY: number }> }) => {
-    touchStartYRef.current = e.touches[0]?.clientY ?? 0
+  const onListTouchMove = (e: { touches: ArrayLike<{ clientY: number }> }) => {
+    if (reorderingId || collapseP !== 0) return // 접힌 상태에선 네이티브 스크롤
+    const y = e.touches[0]?.clientY ?? 0
+    const totalDy = y - listTouchYRef.current
+    if (totalDy < -SCROLL_TRIGGER) {
+      setCollapseP(1) // 위로 스와이프 → 접힘
+      return
+    }
+    // 아래로 끌기 → 펼친 채로 리스트 수동 스크롤
+    const el = scrollRef.current
+    if (el) {
+      const step = y - lastTouchYRef.current
+      el.scrollTop = Math.max(0, el.scrollTop - step)
+    }
+    lastTouchYRef.current = y
   }
-  const onTouchMove = (e: { touches: ArrayLike<{ clientY: number }> }) => {
-    const dy = (e.touches[0]?.clientY ?? 0) - touchStartYRef.current
-    if (dy < -SCROLL_TRIGGER) collapseByGesture('up')
-    else if (dy > SCROLL_TRIGGER) collapseByGesture('down')
+
+  // 접힘 상태: 카세트 바디를 아래로 끌면 펼침. (버튼 영역과 분리, 펼침 상태에선 무동작)
+  const bodyDragYRef = useRef<number | null>(null)
+  const onBodyDragStart = (e: { clientY: number }) => {
+    if (collapseP === 0) return // 펼쳐져 있으면 바디 드래그 무시(접힘은 리스트로)
+    bodyDragYRef.current = e.clientY
+  }
+  const onBodyDragMove = (e: { clientY: number }) => {
+    if (bodyDragYRef.current == null) return
+    const dy = e.clientY - bodyDragYRef.current
+    if (dy > SCROLL_TRIGGER) {
+      setCollapseP(0) // 끌어내림 → 펼침
+      bodyDragYRef.current = null
+    }
+  }
+  const onBodyDragEnd = () => {
+    bodyDragYRef.current = null
   }
 
   const totalSeconds = useMemo(
@@ -292,8 +326,11 @@ export default function TapePage() {
     }
   }, [recorder.elapsedSeconds, recorder.isRecording, stopRecording])
 
+  // STOP 시점 기록 → PLAY 시 그 구간·위치부터 이어재생. 구간 선택/이동 시 무효화.
+  const resumeRef = useRef<{ index: number; offset: number } | null>(null)
+
   const playFrom = useCallback(
-    (startIndex: number) => {
+    (startIndex: number, startOffset = 0) => {
       playQueueRef.current.stop = false
       const playable = segments.filter((s) => s.audio_path)
       if (playable.length === 0) return
@@ -303,6 +340,7 @@ export default function TapePage() {
         playable.findIndex((s) => s.id === startId),
       )
       let i = queueIndex
+      let offset = startOffset // 첫 구간만 이 오프셋부터, 이후 구간은 처음부터
       const playNext = () => {
         if (playQueueRef.current.stop) return
         if (i >= playable.length) {
@@ -314,10 +352,17 @@ export default function TapePage() {
         const absoluteIndex = segments.findIndex((s) => s.id === seg.id)
         if (absoluteIndex >= 0) setCurrentIndex(absoluteIndex)
         const url = getAudioUrl(seg.audio_path!)
-        player.play(url, seg.id, () => {
-          i += 1
-          playNext()
-        })
+        const segOffset = offset
+        offset = 0
+        player.play(
+          url,
+          seg.id,
+          () => {
+            i += 1
+            playNext()
+          },
+          segOffset,
+        )
       }
       playNext()
     },
@@ -334,23 +379,34 @@ export default function TapePage() {
       if (recorder.isRecording) {
         void stopRecording()
       } else {
+        // 정지 지점(현재 구간 + 그 안에서의 위치) 기록 → 다음 PLAY 때 이어재생
+        if (player.playingId) resumeRef.current = { index: currentIndex, offset: player.currentTime() }
         playQueueRef.current.stop = true
         player.stop()
-        // 재생 중 자동스크롤됐던 리스트를 기본 위치(맨 위)로 복귀 + 펼침
-        setCollapseP(0)
-        scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+        // 접힘/펼침은 바디 드래그로만 — STOP은 레이아웃을 건드리지 않음
       }
       return
     }
     if (type === 'play') {
       if (recorder.isRecording) return
-      // 항상 제일 처음 녹음부터 전체 구간을 순서대로 재생
-      setCurrentIndex(0)
-      playFrom(0)
+      if (player.playingId) return // 이미 재생 중이면 다시 눌러도 아무 동작 안 함(리셋 방지)
+      // 정지했던 지점이 있으면 그 위치부터 이어재생
+      if (resumeRef.current) {
+        const { index, offset } = resumeRef.current
+        resumeRef.current = null
+        setCurrentIndex(index)
+        playFrom(index, offset)
+        return
+      }
+      // 선택(탭)한 구간부터 재생. 선택이 없으면 focusedIndex 없이 currentIndex(기본 0)부터.
+      const startIndex = focusedIndex ?? currentIndex
+      setCurrentIndex(startIndex)
+      playFrom(startIndex)
       return
     }
     if (type === 'rew') {
       if (recorder.isRecording) return
+      resumeRef.current = null // 구간 이동 시 이어재생 지점 무효화
       const next = Math.max(0, currentIndex - 1)
       setCurrentIndex(next)
       if (player.playingId) playFrom(next)
@@ -358,24 +414,41 @@ export default function TapePage() {
     }
     if (type === 'ff') {
       if (recorder.isRecording) return
+      resumeRef.current = null // 구간 이동 시 이어재생 지점 무효화
       const next = Math.min(Math.max(0, segments.length - 1), currentIndex + 1)
       setCurrentIndex(next)
       if (player.playingId) playFrom(next)
     }
   }
 
-  const handleFinishTape = async () => {
+  // 보내기 → 쪽지쓰기 풀페이지 시트 오픈 (기존 쪽지 있으면 프리필)
+  const handleShare = async () => {
     if (!id) return
-    setSaving(true)
-    try {
-      if (recorder.isRecording) await stopRecording()
-      await updateTape(id, {})
-      navigate('/')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save tape')
-    } finally {
-      setSaving(false)
-    }
+    if (recorder.isRecording) await stopRecording()
+    playQueueRef.current.stop = true
+    player.stop()
+    setNoteValues({ to: tape?.to_name ?? '', note: tape?.note ?? '', from: tape?.from_name ?? '' })
+    setShareStep('compose')
+  }
+
+  // 쪽지를 DB에 저장 (미리보기 진입 시 호출 → 보내기 시점엔 이미 저장돼 있음)
+  const persistNote = (values: NoteValues) => {
+    if (!id) return
+    void updateTape(id, {
+      to_name: values.to,
+      from_name: values.from,
+      note: values.note,
+      shared_at: new Date().toISOString(),
+    }).catch((e) => setError(e instanceof Error ? e.message : 'Failed to save note'))
+    // OG 이미지 미리 생성·캐싱(워밍) → 받는 사람/메신저가 스크랩할 때 빠르게 응답(콜드 4초 회피)
+    void fetch(`${SHARE_BASE_URL}/api/og?id=${id}`, { mode: 'no-cors' }).catch(() => {})
+  }
+
+  // 미리보기에서 보내기 → OS 공유 시트. navigator.share는 탭 제스처 안에서 동기 호출해야 하므로
+  // 앞에 await를 두지 않는다(쪽지는 미리보기 진입 시 이미 저장됨).
+  const handleSendShare = () => {
+    if (!id) return
+    void shareTape({ id, caption: tape?.caption })
   }
 
   const handleDeleteTape = async () => {
@@ -416,7 +489,7 @@ export default function TapePage() {
   const activeTypes: Partial<Record<ControlType, boolean>> = {
     rew: pressedButton === 'rew',
     stop: pressedButton === 'stop',
-    play: !!player.playingId,
+    play: !!player.playingId || pressedButton === 'play', // 재생 중이 아니어도 누르면 눌림 효과
     rec: recIntent,
     ff: pressedButton === 'ff',
   }
@@ -426,13 +499,13 @@ export default function TapePage() {
       {/* ===== LIST (z-0, 맨 아래) — body 밑으로 스크롤 ===== */}
       <div
         ref={scrollRef}
-        onWheel={onWheel}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
+        onWheel={onListWheel}
+        onTouchStart={onListTouchStart}
+        onTouchMove={onListTouchMove}
         className="absolute inset-0 z-0 overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         // 펼침: 사용자 스크롤 막음(overflow hidden) → 제스처는 collapse만. 단 재생 auto-scroll(프로그램적)은 동작.
-        // 접힘: 리스트 스크롤 허용. 바운스(고무줄) 제거.
-        style={{ overflowY: collapseP ? 'auto' : 'hidden', overscrollBehavior: 'none' }}
+        // 접힘: 리스트 스크롤 허용. 바운스(고무줄) 제거. 순서변경 중엔 스크롤 잠금(드래그와 충돌 방지).
+        style={{ overflowY: collapseP && !reorderingId ? 'auto' : 'hidden', overscrollBehavior: 'none' }}
       >
         {/* 상단 여백 — body 바닥과 항상 20px 겹침. 접힘 시 데크와 동일하게 위로 시프트해 겹침 유지 */}
         <div
@@ -465,17 +538,20 @@ export default function TapePage() {
                   {segments.map((segment, index) => {
                     const focused =
                       player.playingId === segment.id || (!player.playingId && focusedIndex === index)
-                    const anyFocused = !!player.playingId || focusedIndex !== null
                     return (
                       <SegmentRow
                         key={segment.id}
                         segment={segment}
                         index={index}
                         focused={focused}
-                        dimmed={anyFocused && !focused}
+                        dimmed={reorderingId !== null && reorderingId !== segment.id}
+                        onReorderingChange={(r) =>
+                          setReorderingId((prev) => (r ? segment.id : prev === segment.id ? null : prev))
+                        }
                         onDelete={() => handleDeleteSegment(segment.id)}
                         onChange={(value) => handleSegmentMessage(segment.id, value)}
                         onTap={() => {
+                          resumeRef.current = null // 다른 구간 선택 시 이어재생 지점 무효화
                           setFocusedIndex(index)
                           setCurrentIndex(index)
                         }}
@@ -534,6 +610,17 @@ export default function TapePage() {
             className="transition-transform duration-300 ease-out"
             style={{ transform: `translateY(${-collapseP * COLLAPSE_TRAVEL}px)`, willChange: 'transform' }}
           >
+          {/* 바디 드래그 존 — 버튼(컨트롤 하단 ≈457) 바로 아래부터 데크 바닥(첫 리스트 위)까지.
+              접힘 상태에서 여기를 아래로 끌면 펼쳐짐. (버튼·리스트와 겹치지 않음) */}
+          <div
+            className="pointer-events-auto absolute inset-x-0 bottom-0 top-[457px] z-[1] touch-none"
+            onPointerDown={onBodyDragStart}
+            onPointerMove={onBodyDragMove}
+            onPointerUp={onBodyDragEnd}
+            onPointerCancel={onBodyDragEnd}
+            onPointerLeave={onBodyDragEnd}
+          />
+
           {/* 데크 본체 (하단 52px 투명 — mask_top 구간) */}
           <img
             ref={bodyImgRef}
@@ -572,6 +659,7 @@ export default function TapePage() {
           >
             <CassetteView
               designId={tape?.design}
+              spinning={reelSpinning}
               caption={
                 tape ? (tape.caption.trim() ? tape.caption : CAPTION_PLACEHOLDER).slice(0, MAX_CAPTION_LENGTH) : undefined
               }
@@ -583,12 +671,13 @@ export default function TapePage() {
             className="absolute left-[37px] top-[331px] h-[46px] w-[82px] transition-opacity duration-300 ease-out"
             style={{ opacity: 1 - collapseP }}
           >
-            <VuMeter stream={recorder.stream} audioEl={player.audioEl} className="h-full w-full" />
+            <VuMeter stream={recorder.stream} playbackAnalyser={player.analyser} className="h-full w-full" />
           </div>
 
           {/* 컨트롤 키캡 */}
           <PlayerControls
             activeTypes={activeTypes}
+            playing={!!player.playingId}
             onPress={(type) => {
               setPressedButton(type)
               handleButtonAction(type)
@@ -638,12 +727,12 @@ export default function TapePage() {
           style={{ paddingBottom: 'max(34px, env(safe-area-inset-bottom))' }}
         >
           <button
-            onClick={handleFinishTape}
+            onClick={handleShare}
             disabled={saving || segments.length === 0}
             className="flex h-[56px] w-full items-center justify-center rounded-[8px] bg-[#222] disabled:bg-[#bdb8b0]"
           >
             <span className="font-mix text-[18px] leading-[25.5px] text-white">
-              {saving ? '저장 중...' : '보내기'}
+              {saving ? '저장 중...' : '녹음 완료'}
             </span>
           </button>
         </div>
@@ -727,7 +816,7 @@ export default function TapePage() {
                 <br />
                 정말 삭제하시겠습니까?
               </p>
-              <div className="mt-[8px] flex border-t border-[#ececec]">
+              <div className="mt-[8px] flex">
                 <button
                   type="button"
                   onClick={() => setConfirmDeleteOpen(false)}
@@ -735,7 +824,6 @@ export default function TapePage() {
                 >
                   취소
                 </button>
-                <div className="w-px bg-[#ececec]" />
                 <button
                   type="button"
                   onClick={() => void handleDeleteTape()}
@@ -748,6 +836,35 @@ export default function TapePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ===== 공유 흐름 (쪽지쓰기 / 미리보기) ===== */}
+      {tape && (shareStep === 'compose' || shareStep === 'editNote') && (
+        <NoteComposeSheet
+          designId={tape.design}
+          caption={tape.caption}
+          segmentCount={segments.length}
+          durationText={`${Math.floor(totalSeconds / 60)}분 ${totalSeconds % 60}초`}
+          initial={noteValues}
+          mode={shareStep === 'editNote' ? 'edit' : 'compose'}
+          onClose={() => setShareStep(shareStep === 'editNote' ? 'preview' : 'none')}
+          onSubmit={(v) => {
+            setNoteValues(v)
+            persistNote(v) // 미리보기 진입 시 쪽지 저장 → 보내기 때 공유시트만 호출(제스처 보존)
+            setShareStep('preview')
+          }}
+        />
+      )}
+      {tape && shareStep === 'preview' && (
+        <SharePreview
+          tape={tape}
+          segments={segments}
+          values={noteValues}
+          sending={saving}
+          onClose={() => setShareStep('none')}
+          onEditNote={() => setShareStep('editNote')}
+          onSend={() => void handleSendShare()}
+        />
+      )}
     </MobileFrame>
   )
 }
@@ -763,6 +880,7 @@ interface SegmentRowProps {
   onOpenChange: (open: boolean) => void
   onSwipeStart: () => void
   onLongPressStart: () => void
+  onReorderingChange: (reordering: boolean) => void
 }
 
 function SegmentRow({
@@ -776,6 +894,7 @@ function SegmentRow({
   onOpenChange,
   onSwipeStart,
   onLongPressStart,
+  onReorderingChange,
 }: SegmentRowProps) {
   const dragControls = useDragControls()
 
@@ -797,6 +916,7 @@ function SegmentRow({
         onChange={onChange}
         onTap={onTap}
         onOpenChange={onOpenChange}
+        onReorderingChange={onReorderingChange}
         onSwipeStart={onSwipeStart}
         onLongPress={(event) => {
           onLongPressStart()

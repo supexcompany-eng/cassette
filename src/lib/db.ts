@@ -58,7 +58,9 @@ export async function createTape(opts?: { caption?: string; design?: string }): 
 
 export async function updateTape(
   id: string,
-  patch: Partial<Pick<Tape, 'title' | 'caption' | 'design' | 'decoration'>>,
+  patch: Partial<
+    Pick<Tape, 'title' | 'caption' | 'design' | 'decoration' | 'to_name' | 'from_name' | 'note' | 'shared_at'>
+  >,
 ) {
   const { error } = await supabase
     .from('tapes')

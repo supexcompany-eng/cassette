@@ -16,7 +16,7 @@ export default function MobileFrame({
   return (
     <div className={`min-h-dvh sm:flex sm:items-center sm:justify-center ${outerClassName}`}>
       <div
-        className={`relative mx-auto flex w-full flex-col overflow-hidden min-h-dvh sm:w-[393px] sm:h-[852px] sm:min-h-0 ${innerClassName}`}
+        className={`relative mx-auto flex h-dvh w-full flex-col overflow-hidden sm:h-[852px] ${innerClassName}`}
       >
         {children}
       </div>

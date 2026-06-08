@@ -125,7 +125,9 @@ export default function NewCassettePage() {
       {/* 헤더: 제목 / 닫기 */}
       <header className="flex h-[64px] shrink-0 items-center gap-[10px] px-[16px]">
         <div className="size-[40px] shrink-0" aria-hidden />
-        <p className="min-w-px flex-1 text-center font-mix text-[20px] leading-[32px] text-[#111]">New cassette</p>
+        <p className="min-w-px flex-1 text-center font-mix text-[20px] leading-[32px] text-[#111]">
+          {isEdit ? 'Edit cassette' : 'New cassette'}
+        </p>
         <button
           type="button"
           onClick={handleClose}
@@ -248,7 +250,7 @@ export default function NewCassettePage() {
                 <br />
                 나가시겠습니까?
               </p>
-              <div className="mt-[8px] flex border-t border-[#ececec]">
+              <div className="mt-[8px] flex">
                 <button
                   type="button"
                   onClick={() => setDiscardOpen(false)}
@@ -256,7 +258,6 @@ export default function NewCassettePage() {
                 >
                   취소
                 </button>
-                <div className="w-px bg-[#ececec]" />
                 <button
                   type="button"
                   onClick={() => navigate(isEdit ? `/tape/${id}` : '/')}

@@ -13,8 +13,12 @@ interface SegmentItemProps {
   onChange?: (value: string) => void
   onTap?: () => void
   onOpenChange?: (open: boolean) => void
+  /** 순서변경(롱프레스 드래그) 시작/종료 알림 — 다른 항목 dimmed 처리에 사용 */
+  onReorderingChange?: (reordering: boolean) => void
   onSwipeStart?: () => void
   onLongPress?: (event: PointerEvent) => void
+  /** 공유 읽기전용: 스와이프 삭제·롱프레스 순서변경·메시지 편집 비활성, 탭(선택)만 허용 */
+  readOnly?: boolean
 }
 
 // 카드가 열릴 때 왼쪽으로 이동하는 거리. 삭제버튼(40, 우측 마진 20px) + 여백 10px 기준
@@ -39,8 +43,10 @@ export default function SegmentItem({
   onChange,
   onTap,
   onOpenChange,
+  onReorderingChange,
   onSwipeStart,
   onLongPress,
+  readOnly = false,
 }: SegmentItemProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isReordering, setIsReordering] = useState(false)
@@ -52,6 +58,10 @@ export default function SegmentItem({
   useEffect(() => {
     onOpenChange?.(isOpen)
   }, [isOpen, onOpenChange])
+
+  useEffect(() => {
+    onReorderingChange?.(isReordering)
+  }, [isReordering, onReorderingChange])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
@@ -109,17 +119,14 @@ export default function SegmentItem({
       className={[
         'relative h-[56px] w-full rounded-[8px] transition-opacity duration-150',
         // overflow-hidden 제거 — 스와이프된 카드가 왼쪽 마진에 안 잘리고 화면 끝(스크롤 컨테이너 x0)까지 블리드되도록
-        isReordering
-          ? 'shadow-[0_6px_16px_rgba(0,0,0,0.18)]'
-          : isFocused
-            ? 'shadow-[0px_0px_16px_0px_#100D0A12]'
-            : '',
-        dimmed ? 'opacity-80' : '',
+        // 그림자/테두리는 흰 카드(motion.div)에 직접 적용: 순서변경=드롭쉐도우, 재생중/선택=0.5px 테두리
+        dimmed ? 'opacity-70' : '',
       ].join(' ')}
       data-name="item"
       data-segment-item="true"
       data-seg-id={segId}
       onPointerDown={(e) => {
+        if (readOnly) return // 읽기전용: 롱프레스 순서변경 없음
         const target = e.target as HTMLElement
         if (target.tagName === 'INPUT') return
         if (isOpen) return
@@ -173,10 +180,10 @@ export default function SegmentItem({
 
       {/* 드래그 가능한 카드 */}
       <motion.div
-        drag={isReordering ? false : 'x'}
+        drag={readOnly || isReordering ? false : 'x'}
         dragDirectionLock
         dragConstraints={{ left: -DELETE_WIDTH, right: 0 }}
-        dragElastic={{ left: 0.15, right: 0.5 }}
+        dragElastic={{ left: 0.15, right: 0 }}
         dragMomentum={false}
         onDragStart={() => {
           cancelLongPress()
@@ -185,18 +192,25 @@ export default function SegmentItem({
         onDragEnd={handleDragEnd}
         onClick={handleItemClick}
         style={{ x }}
-        className="absolute left-0 right-0 top-0 flex h-[56px] touch-pan-y items-center gap-[12px] rounded-[8px] bg-white px-[17px]"
+        className={`absolute left-0 right-0 top-0 flex h-[56px] touch-pan-y items-center gap-[12px] rounded-[8px] bg-white px-[17px] ${
+          isReordering
+            ? 'drop-shadow-[0px_0px_8px_rgba(16,13,10,0.07)]'
+            : isFocused
+              ? 'border-[0.5px] border-[#868686]'
+              : ''
+        }`}
       >
         <span className="w-[10px] shrink-0 font-mix text-[14px] leading-[20px] text-[#888]">{count}</span>
         <input
           type="text"
           value={message}
           maxLength={15}
+          readOnly={readOnly}
           onChange={(e) => onChange?.(e.target.value.slice(0, 15))}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
-          placeholder="메시지 적기"
+          onClick={(e) => !readOnly && e.stopPropagation()}
+          onPointerDown={(e) => !readOnly && e.stopPropagation()}
+          onTouchStart={(e) => !readOnly && e.stopPropagation()}
+          placeholder={readOnly ? '' : '메시지 적기'}
           className="min-w-[20px] max-w-full bg-transparent font-mix text-[14px] leading-normal text-[#111] outline-none placeholder:text-[#b3aea6] [field-sizing:content]"
         />
         <div className="flex-1" aria-hidden />

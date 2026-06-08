@@ -5,7 +5,13 @@ import { Trash2 } from 'lucide-react'
 import { deleteTape, listTapesWithStats } from '../../lib/db'
 import type { TapeWithStats } from '../../lib/types'
 import MobileFrame from '../components/MobileFrame'
+import CassetteStackRow from '../components/CassetteStackRow'
+import { STACK_SHADOW } from '../../lib/cassetteStack'
 import icStack from '../../assets/ic_stack.svg'
+import icList from '../../assets/ic_list.svg'
+
+type ViewMode = 'list' | 'stack'
+const VIEW_MODE_KEY = 'cassette.viewMode'
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -23,11 +29,6 @@ function formatDuration(totalSeconds: number): string {
   const m = Math.floor(safe / 60)
   const s = safe % 60
   return `${m}분 ${s}초`
-}
-
-/** 헤더 좌측 스택 아이콘 (에셋) */
-function StackIcon() {
-  return <img src={icStack} alt="" className="size-[24px]" aria-hidden />
 }
 
 /** 헤더 우측 + 아이콘 */
@@ -49,13 +50,15 @@ interface TapeRowProps {
   onDelete: () => void
 }
 
-const REVEAL_X = -70 // 삭제 버튼(40, 우측 마진 20) + 여백 10px 노출
+const REVEAL_X = -74 // 삭제 버튼(40) + 우측 마진 20 + 간격 14px 노출 (Figma delete state)
 const SWIPE_SPRING = { type: 'spring' as const, stiffness: 500, damping: 40, mass: 0.8 }
 const SWIPE_VELOCITY_THRESHOLD = -500
 
 function TapeRow({ tape, isOpen, hasOpenRow, onOpenChange, onNavigate, onDelete }: TapeRowProps) {
   const x = useMotionValue(0)
   const draggedRef = useRef(false)
+  const [pressed, setPressed] = useState(false) // 터치 다운 하이라이트(pressed state)
+  const [dragging, setDragging] = useState(false)
   const caption = tape.caption.trim() ? tape.caption : CAPTION_PLACEHOLDER
 
   useEffect(() => {
@@ -81,13 +84,18 @@ function TapeRow({ tape, isOpen, hasOpenRow, onOpenChange, onNavigate, onDelete 
       <motion.div
         drag="x"
         dragConstraints={{ left: REVEAL_X, right: 0 }}
-        dragElastic={{ left: 0.15, right: 0.5 }}
+        dragElastic={{ left: 0.15, right: 0 }}
         dragMomentum={false}
         style={{ x }}
+        onTapStart={() => setPressed(true)}
+        onTapCancel={() => setPressed(false)}
         onDragStart={() => {
           draggedRef.current = true
+          setPressed(false)
+          setDragging(true)
         }}
         onDragEnd={(_, info) => {
+          setDragging(false)
           const moved = Math.abs(info.offset.x) > 5
           const next = info.offset.x < REVEAL_X / 2 || info.velocity.x < SWIPE_VELOCITY_THRESHOLD
           // 놓는 즉시 항상 완전히 열림/닫힘으로 스냅 (iOS 기본 동작 — 중간 상태 없음)
@@ -96,6 +104,7 @@ function TapeRow({ tape, isOpen, hasOpenRow, onOpenChange, onNavigate, onDelete 
           if (!moved) draggedRef.current = false
         }}
         onTap={() => {
+          setPressed(false)
           if (draggedRef.current) {
             draggedRef.current = false
             return
@@ -110,7 +119,9 @@ function TapeRow({ tape, isOpen, hasOpenRow, onOpenChange, onNavigate, onDelete 
           }
           onNavigate()
         }}
-        className="absolute inset-0 flex cursor-pointer flex-col justify-center gap-[6px] bg-[#f5f3f1] px-[24px] py-[18px]"
+        className={`absolute inset-0 flex cursor-pointer flex-col justify-center gap-[6px] px-[24px] py-[18px] ${
+          pressed || dragging || isOpen ? 'rounded-[8px] bg-[#f0edea]' : 'bg-[#f5f3f1]'
+        }`}
       >
         <p className="w-full truncate font-mix text-[16px] leading-[28px] text-[#111]">{caption}</p>
         <div className="flex w-full items-center justify-between gap-[10px]">
@@ -137,6 +148,25 @@ export default function TapeListPage() {
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    try {
+      return localStorage.getItem(VIEW_MODE_KEY) === 'stack' ? 'stack' : 'list'
+    } catch {
+      return 'list'
+    }
+  })
+  const toggleViewMode = () => {
+    setViewMode((m) => {
+      const next: ViewMode = m === 'stack' ? 'list' : 'stack'
+      try {
+        localStorage.setItem(VIEW_MODE_KEY, next)
+      } catch {
+        // ignore
+      }
+      setOpenId(null)
+      return next
+    })
+  }
 
   useEffect(() => {
     if (!openId) return
@@ -187,9 +217,14 @@ export default function TapeListPage() {
 
       {/* 헤더 (Figma title: px-16 py-12, h64) */}
       <div className="flex h-[64px] shrink-0 items-center gap-[10px] px-[16px]">
-        <div className="flex size-[40px] shrink-0 items-center justify-center">
-          <StackIcon />
-        </div>
+        <button
+          type="button"
+          onClick={toggleViewMode}
+          className="flex size-[40px] shrink-0 items-center justify-center"
+          aria-label="보기 방식 전환"
+        >
+          <img src={viewMode === 'stack' ? icList : icStack} alt="" className="size-[24px]" aria-hidden />
+        </button>
         <p className="min-w-px flex-1 text-center font-mix text-[20px] leading-[32px] text-[#111]">cassette</p>
         <button
           type="button"
@@ -201,7 +236,7 @@ export default function TapeListPage() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden [overscroll-behavior:none]">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [overscroll-behavior:none]">
         {loading && <p className="mt-[20px] px-[24px] font-mix text-[13px] text-[#888]">loading...</p>}
         {error && <p className="mt-[12px] px-[24px] font-mix text-[12px] text-[#F54C4C]">{error}</p>}
         {!loading && tapes.length === 0 && !error && (
@@ -210,19 +245,41 @@ export default function TapeListPage() {
             <p className="font-mix text-[12px] text-[#b3aea6]">위에서 새 테이프를 만들어 보세요</p>
           </div>
         )}
-        <AnimatePresence initial={false}>
-          {tapes.map((tape) => (
-            <TapeRow
-              key={tape.id}
-              tape={tape}
-              isOpen={openId === tape.id}
-              hasOpenRow={openId !== null}
-              onOpenChange={(open) => setOpenId(open ? tape.id : null)}
-              onNavigate={() => navigate(`/tape/${tape.id}`)}
-              onDelete={() => setConfirmDeleteId(tape.id)}
-            />
-          ))}
-        </AnimatePresence>
+        {viewMode === 'stack' ? (
+          <div className="px-[20px] pt-[20px]">
+            <div className="flex flex-col gap-[4px]">
+              {tapes.map((tape) => (
+                <CassetteStackRow
+                  key={tape.id}
+                  tape={tape}
+                  isOpen={openId === tape.id}
+                  hasOpenRow={openId !== null}
+                  onOpenChange={(open) => setOpenId(open ? tape.id : null)}
+                  onNavigate={() => navigate(`/tape/${tape.id}`)}
+                  onDelete={() => setConfirmDeleteId(tape.id)}
+                />
+              ))}
+            </div>
+            {/* 스택 맨 아래 그림자 — 길이와 무관, 간격 0으로 딱 붙음 */}
+            {tapes.length > 0 && (
+              <img src={STACK_SHADOW} alt="" aria-hidden draggable={false} className="block w-full select-none" />
+            )}
+          </div>
+        ) : (
+          <AnimatePresence initial={false}>
+            {tapes.map((tape) => (
+              <TapeRow
+                key={tape.id}
+                tape={tape}
+                isOpen={openId === tape.id}
+                hasOpenRow={openId !== null}
+                onOpenChange={(open) => setOpenId(open ? tape.id : null)}
+                onNavigate={() => navigate(`/tape/${tape.id}`)}
+                onDelete={() => setConfirmDeleteId(tape.id)}
+              />
+            ))}
+          </AnimatePresence>
+        )}
       </div>
 
       <div className="shrink-0" style={{ height: 'env(safe-area-inset-bottom)' }} />
@@ -251,7 +308,7 @@ export default function TapeListPage() {
                 <br />
                 정말 삭제하시겠습니까?
               </p>
-              <div className="mt-[8px] flex border-t border-[#ececec]">
+              <div className="mt-[8px] flex">
                 <button
                   type="button"
                   onClick={() => setConfirmDeleteId(null)}
@@ -259,7 +316,6 @@ export default function TapeListPage() {
                 >
                   취소
                 </button>
-                <div className="w-px bg-[#ececec]" />
                 <button
                   type="button"
                   onClick={() => void handleConfirmDelete()}

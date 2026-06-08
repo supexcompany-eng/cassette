@@ -59,6 +59,9 @@ export function useRecorder(): UseRecorder {
     if (isRecording) return
     setError(null)
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('이 환경에서는 마이크를 사용할 수 없습니다. 실기기에서 다시 시도해 주세요.')
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       setStream(stream)

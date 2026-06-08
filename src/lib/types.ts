@@ -25,6 +25,11 @@ export interface Tape {
   decoration: Sticker[]
   created_at: string
   updated_at: string
+  /** 공유 쪽지 — 보내기 시점에 저장. 미전송 테이프는 null */
+  to_name?: string | null
+  from_name?: string | null
+  note?: string | null
+  shared_at?: string | null
 }
 
 export interface TapeWithStats extends Tape {
