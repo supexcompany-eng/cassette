@@ -62,7 +62,12 @@ export function useRecorder(): UseRecorder {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error('이 환경에서는 마이크를 사용할 수 없습니다. 실기기에서 다시 시도해 주세요.')
       }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // iOS: 에코캔슬/노이즈서프레션이 켜지면 음성처리 유닛(VPIO)이 동작해 오디오 세션을
+      // 통화용(수화부·저음량)으로 바꿔 효과음·재생이 전부 작아진다(녹음 버튼 누른 뒤부터).
+      // → 끄면 일반 녹음 모드라 큰 볼륨이 유지됨.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
+      })
       streamRef.current = stream
       setStream(stream)
       const mimeType = pickMimeType()

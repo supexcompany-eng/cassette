@@ -2,6 +2,7 @@ import norBg from '../../assets/btn_player_nor_bg.png'
 import recBg from '../../assets/btn_player_rec_bg.png'
 import shareBg from '../../assets/btn_player_share.png'
 import clickSound from '../../assets/sound/sound_click.mp3'
+import { isButtonSoundOn } from '../../lib/prefs'
 
 // 버튼 클릭 효과음 — WebAudio로 미리 디코딩해두고 누를 때마다 새 소스로 즉시 재생.
 // (HTMLAudio 단일 인스턴스는 연타 시 직전 재생을 못 끊어 무음이 생김 → 버퍼 소스로 해결)
@@ -32,6 +33,7 @@ function ensureClickAudio() {
 if (typeof window !== 'undefined') ensureClickAudio()
 
 function playClick() {
+  if (!isButtonSoundOn()) return // 설정에서 버튼음 끈 경우
   ensureClickAudio()
   if (!clickCtx) return
   void clickCtx.resume() // iOS: 첫 탭(제스처) 때 재개

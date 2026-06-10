@@ -9,6 +9,34 @@ export function tapeShareUrl(tapeId: string): string {
 export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed'
 
 /**
+ * 앱 자체를 공유(친구 초대) — 개별 카세트가 아니라 앱 루트 링크를 보낸다.
+ * 루트(index.html)에 앱 OG 메타가 있어 메신저에서 앱 OG 이미지가 노출된다.
+ */
+export async function shareApp(): Promise<ShareOutcome> {
+  const url = SHARE_BASE_URL
+  const title = 'Cassette'
+  const text = '카세트에 초대합니다'
+
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title, text, url })
+      return 'shared'
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return 'cancelled'
+    }
+  }
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url)
+      return 'copied'
+    }
+  } catch {
+    // ignore
+  }
+  return 'failed'
+}
+
+/**
  * OS 공유 시트를 띄운다. iOS WKWebView(https 보안 컨텍스트)·모바일 브라우저는 navigator.share로
  * 네이티브 시트를 띄우고, 미지원 환경은 클립보드 복사로 폴백한다. (Capacitor 플러그인 불필요)
  */

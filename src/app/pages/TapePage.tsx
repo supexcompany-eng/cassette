@@ -29,6 +29,7 @@ import imgPlayerBody from '../../assets/img_player_body_default.png'
 import imgCassetteBg from '../../assets/img_player_cassettebg.png'
 import imgHole from '../../assets/img_player_hole.png'
 import CassetteView from '../components/CassetteView'
+import { getNickname } from '../../lib/nickname'
 
 const MAX_TAPE_SECONDS = 30 * 60
 /** 카세트 라벨에 노출되는 사용자 문구의 최대 글자 수 (공백 포함 13자) */
@@ -90,6 +91,7 @@ export default function TapePage() {
   const editTimersRef = useRef<Map<string, number>>(new Map())
   const totalAtRecStartRef = useRef(0)
   const autoStopTriggeredRef = useRef(false)
+  const recIntentRef = useRef(false) // REC 눌렀지만 아직 0.5초 버퍼 중인 상태 포함 (취소 판정용)
 
   useEffect(() => {
     if (!id) return
@@ -279,10 +281,16 @@ export default function TapePage() {
     autoStopTriggeredRef.current = false
     setError(null)
     setRecIntent(true)
+    recIntentRef.current = true
     try {
+      // REC 클릭 효과음이 녹음 앞부분에 섞이지 않도록 0.5초 버퍼 후 실제 녹음 시작.
+      // (버퍼 중 STOP 누르면 recIntentRef가 false가 되어 시작 취소)
+      await new Promise((r) => setTimeout(r, 500))
+      if (!recIntentRef.current) return
       await recorder.start()
     } catch (e) {
       setRecIntent(false)
+      recIntentRef.current = false
       setError(e instanceof Error ? e.message : 'Microphone unavailable')
     }
   }, [id, player, recorder, totalSeconds])
@@ -290,6 +298,7 @@ export default function TapePage() {
   const stopRecording = useCallback(async () => {
     if (!id) return
     setRecIntent(false)
+    recIntentRef.current = false // 버퍼 중이었다면 시작 취소
     const result = await recorder.stop()
     if (!result) return
     try {
@@ -369,12 +378,12 @@ export default function TapePage() {
 
   const handleButtonAction = (type: ControlType) => {
     if (type === 'rec') {
-      if (recorder.isRecording) return
+      if (recorder.isRecording || recIntentRef.current) return
       void startRecording()
       return
     }
     if (type === 'stop') {
-      if (recorder.isRecording) {
+      if (recorder.isRecording || recIntentRef.current) {
         void stopRecording()
       } else {
         // 정지 지점(현재 구간 + 그 안에서의 위치) 기록 → 다음 PLAY 때 이어재생
@@ -386,7 +395,7 @@ export default function TapePage() {
       return
     }
     if (type === 'play') {
-      if (recorder.isRecording) return
+      if (recorder.isRecording || recIntentRef.current) return
       if (player.playingId) return // 이미 재생 중이면 다시 눌러도 아무 동작 안 함(리셋 방지)
       // 정지했던 지점이 있으면 그 위치부터 이어재생
       if (resumeRef.current) {
@@ -403,7 +412,7 @@ export default function TapePage() {
       return
     }
     if (type === 'rew') {
-      if (recorder.isRecording) return
+      if (recorder.isRecording || recIntentRef.current) return
       resumeRef.current = null // 구간 이동 시 이어재생 지점 무효화
       const next = Math.max(0, currentIndex - 1)
       setCurrentIndex(next)
@@ -411,7 +420,7 @@ export default function TapePage() {
       return
     }
     if (type === 'ff') {
-      if (recorder.isRecording) return
+      if (recorder.isRecording || recIntentRef.current) return
       resumeRef.current = null // 구간 이동 시 이어재생 지점 무효화
       const next = Math.min(Math.max(0, segments.length - 1), currentIndex + 1)
       setCurrentIndex(next)
@@ -419,13 +428,14 @@ export default function TapePage() {
     }
   }
 
-  // 보내기 → 쪽지쓰기 풀페이지 시트 오픈 (기존 쪽지 있으면 프리필)
+  // 보내기 → 쪽지쓰기 풀페이지 시트 오픈. 받는사람/내용은 항상 빈칸,
+  // 보내는사람은 사용자 닉네임으로 프리필(수정 가능). (이전 쪽지는 복원하지 않음)
   const handleShare = async () => {
     if (!id) return
     if (recorder.isRecording) await stopRecording()
     playQueueRef.current.stop = true
     player.stop()
-    setNoteValues({ to: tape?.to_name ?? '', note: tape?.note ?? '', from: tape?.from_name ?? '' })
+    setNoteValues({ to: '', note: '', from: getNickname() })
     setShareStep('compose')
   }
 

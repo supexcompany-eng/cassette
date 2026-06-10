@@ -41,12 +41,21 @@ export async function getTape(id: string): Promise<Tape | null> {
 }
 
 export async function createTape(opts?: { caption?: string; design?: string }): Promise<Tape> {
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth.user?.id
+  if (!userId) throw new Error('로그인이 필요합니다')
+  // 내 테이프 개수로 기본 제목 번호 매김 (RLS로 본인 것만 카운트됨)
   const { count } = await supabase.from('tapes').select('*', { count: 'exact', head: true })
   const nextNumber = (count ?? 0) + 1
   const defaultTitle = `tape ${String(nextNumber).padStart(2, '0')}`
   const { data, error } = await supabase
     .from('tapes')
-    .insert({ title: defaultTitle, caption: opts?.caption ?? '', design: opts?.design ?? 'simple_3' })
+    .insert({
+      title: defaultTitle,
+      caption: opts?.caption ?? '',
+      design: opts?.design ?? 'simple_3',
+      user_id: userId,
+    })
     .select()
     .single()
   if (error) throw error

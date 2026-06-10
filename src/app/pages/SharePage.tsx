@@ -5,11 +5,11 @@ import { useTapePlayback } from '../../hooks/useTapePlayback'
 import ShareStage from '../components/ShareStage'
 import type { Segment, Tape } from '../../lib/types'
 
-// 랜딩: 393×650, 데크 -44(카세트 frame 54), 쪽지 460
+// 랜딩: 393×650, 데크 -44(카세트 frame 54), 쪽지 470 (데크 바닥 500과 30px 겹침)
 const STAGE_W = 393
 const STAGE_H = 650
 const DECK_TOP = -44
-const MEMO_TOP = 460
+const MEMO_TOP = 470
 
 function formatDate(iso?: string | null): string {
   const d = iso ? new Date(iso) : new Date()

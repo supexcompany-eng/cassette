@@ -9,8 +9,12 @@ import CassetteStackRow from '../components/CassetteStackRow'
 import { STACK_SHADOW } from '../../lib/cassetteStack'
 import icStack from '../../assets/ic_stack.svg'
 import icList from '../../assets/ic_list.svg'
+import icSettings from '../../assets/ic_settings.svg'
+import tabSelected from '../../assets/img_tab_bg_selected.png'
+import tabNormal from '../../assets/img_tab_bg_normal.png'
 
 type ViewMode = 'list' | 'stack'
+type MainTab = 'mine' | 'received'
 const VIEW_MODE_KEY = 'cassette.viewMode'
 
 function formatDate(iso: string): string {
@@ -31,13 +35,64 @@ function formatDuration(totalSeconds: number): string {
   return `${m}분 ${s}초`
 }
 
-/** 헤더 우측 + 아이콘 */
-function PlusIcon() {
+/** FAB(우하단) 흰색 + 아이콘 */
+function FabPlusIcon() {
   return (
     <div className="relative size-[24px]" aria-hidden>
-      <div className="absolute left-1/2 top-1/2 h-[17px] w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-[1px] bg-[#111]" />
-      <div className="absolute left-1/2 top-1/2 h-[2px] w-[17px] -translate-x-1/2 -translate-y-1/2 rounded-[1px] bg-[#111]" />
+      <div className="absolute left-1/2 top-1/2 h-[17px] w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-[1px] bg-white" />
+      <div className="absolute left-1/2 top-1/2 h-[2px] w-[17px] -translate-x-1/2 -translate-y-1/2 rounded-[1px] bg-white" />
     </div>
+  )
+}
+
+/** 폴더형 탭 (내 카세트 / 받은 카세트) — Figma Component 2 (탭 130×48, 좌14/124 겹침) */
+function FolderTab({ label, active, onClick, left }: { label: string; active: boolean; onClick: () => void; left: number }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="absolute top-[12px] h-[48px] w-[130px] overflow-hidden"
+      style={{ left, zIndex: active ? 2 : 1 }}
+    >
+      <img src={active ? tabSelected : tabNormal} alt="" aria-hidden draggable={false} className="absolute inset-0 size-full select-none" />
+      <span className={`absolute left-[20px] top-[17px] font-['Orbit'] text-[14px] ${active ? 'text-[#111]' : 'text-[#888]'}`}>
+        {label}
+      </span>
+    </button>
+  )
+}
+
+/** 받은 카세트 리스트 행 — 제목 + from. 보내는사람 + 통계 (Figma 받은 카세트) */
+function ReceivedTapeRow({ tape, fromName, onNavigate }: { tape: TapeWithStats; fromName: string; onNavigate: () => void }) {
+  const [pressed, setPressed] = useState(false)
+  const caption = tape.caption.trim() ? tape.caption : CAPTION_PLACEHOLDER
+  return (
+    <button
+      type="button"
+      onClick={onNavigate}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
+      className={`flex h-[114px] w-full flex-col justify-center gap-[6px] px-[24px] py-[18px] text-left ${
+        pressed ? 'rounded-[8px] bg-[#f0edea]' : 'bg-[#f5f3f1]'
+      }`}
+    >
+      <p className="w-full truncate font-mix text-[16px] leading-[28px] text-[#111]">{caption}</p>
+      <p className="w-full truncate font-mix text-[13px] leading-[20px] text-[#888]">from. {fromName}</p>
+      <div className="flex w-full items-center justify-between gap-[10px]">
+        <div className="flex min-w-0 items-center gap-[8px]">
+          <p className="whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">{tape.segment_count}구간</p>
+          <div className="h-[10px] w-px bg-[#cbc6bd]" />
+          <p className="whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">
+            {formatDuration(tape.total_duration_seconds)}
+          </p>
+        </div>
+        <p className="shrink-0 whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">
+          {formatDate(tape.created_at)}
+        </p>
+      </div>
+    </button>
   )
 }
 
@@ -148,6 +203,9 @@ export default function TapeListPage() {
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<MainTab>('mine')
+  // TODO(auth): 받은 카세트 = 수신 관계 + 발신자 닉네임 (인증 단계에서 연결). 지금은 빈 목록
+  const receivedTapes: TapeWithStats[] = []
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
       return localStorage.getItem(VIEW_MODE_KEY) === 'stack' ? 'stack' : 'list'
@@ -212,11 +270,11 @@ export default function TapeListPage() {
 
   return (
     <MobileFrame innerClassName="bg-[#f5f3f1] text-[#222]" outerClassName="bg-[#f5f3f1]">
-      {/* 시스템 상태바 자리 (safe-area) — 앱에선 실제 상태바가 이 자리에 노출 */}
-      <div className="shrink-0" style={{ height: 'env(safe-area-inset-top)' }} />
+      {/* 시스템 상태바 자리 (safe-area) — 앱에선 실제 상태바가 이 자리에 노출. 상단존 #ece9e6 */}
+      <div className="shrink-0 bg-[#ece9e6]" style={{ height: 'env(safe-area-inset-top)' }} />
 
-      {/* 헤더 (Figma title: px-16 py-12, h64) */}
-      <div className="flex h-[64px] shrink-0 items-center gap-[10px] px-[16px]">
+      {/* 헤더 (Figma title: px-16 py-12, h64) — 상단존 #ece9e6 */}
+      <div className="flex h-[64px] shrink-0 items-center gap-[10px] bg-[#ece9e6] px-[16px]">
         <button
           type="button"
           onClick={toggleViewMode}
@@ -228,27 +286,75 @@ export default function TapeListPage() {
         <p className="min-w-px flex-1 text-center font-mix text-[20px] leading-[32px] text-[#111]">cassette</p>
         <button
           type="button"
-          onClick={() => navigate('/new')}
+          onClick={() => navigate('/settings')}
           className="flex size-[40px] shrink-0 items-center justify-center"
-          aria-label="새 테이프"
+          aria-label="설정"
         >
-          <PlusIcon />
+          <img src={icSettings} alt="" className="size-[24px]" aria-hidden />
         </button>
       </div>
 
+      {/* 탭 (내 카세트 / 받은 카세트) — Figma Component 2. 상단존 #ece9e6, 하단 10px 띠는 컨텐츠색+위로향한 그림자 */}
+      <div className="relative h-[70px] shrink-0 bg-[#ece9e6]">
+        <FolderTab label="내 카세트" active={activeTab === 'mine'} left={14} onClick={() => { setActiveTab('mine'); setOpenId(null) }} />
+        <FolderTab label="받은 카세트" active={activeTab === 'received'} left={124} onClick={() => { setActiveTab('received'); setOpenId(null) }} />
+        <div className="absolute bottom-0 left-0 h-[10px] w-full bg-[#f5f3f1] shadow-[0px_-4px_20px_0px_rgba(0,0,0,0.03)]" />
+      </div>
+
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden [overscroll-behavior:none]">
-        {loading && <p className="mt-[20px] px-[24px] font-mix text-[13px] text-[#888]">loading...</p>}
-        {error && <p className="mt-[12px] px-[24px] font-mix text-[12px] text-[#F54C4C]">{error}</p>}
-        {!loading && tapes.length === 0 && !error && (
-          <div className="flex flex-col items-center justify-center gap-[12px] px-[24px] pt-[80px] text-center">
-            <p className="font-mix text-[14px] text-[#888]">아직 녹음한 테이프가 없어요</p>
-            <p className="font-mix text-[12px] text-[#b3aea6]">위에서 새 테이프를 만들어 보세요</p>
+        {activeTab === 'mine' ? (
+          <>
+            {loading && <p className="mt-[20px] px-[24px] font-mix text-[13px] text-[#888]">loading...</p>}
+            {error && <p className="mt-[12px] px-[24px] font-mix text-[12px] text-[#F54C4C]">{error}</p>}
+            {!loading && tapes.length === 0 && !error && (
+              <div className="flex h-[400px] items-center justify-center px-[24px] text-center">
+                <p className="font-mix text-[14px] text-[#b6b6b6]">기록하고 싶은 순간을 모아보세요</p>
+              </div>
+            )}
+            {viewMode === 'stack' ? (
+              <div className="px-[20px] pt-[20px]">
+                <div className="flex flex-col gap-[4px]">
+                  {tapes.map((tape) => (
+                    <CassetteStackRow
+                      key={tape.id}
+                      tape={tape}
+                      isOpen={openId === tape.id}
+                      hasOpenRow={openId !== null}
+                      onOpenChange={(open) => setOpenId(open ? tape.id : null)}
+                      onNavigate={() => navigate(`/tape/${tape.id}`)}
+                      onDelete={() => setConfirmDeleteId(tape.id)}
+                    />
+                  ))}
+                </div>
+                {/* 스택 맨 아래 그림자 — 길이와 무관, 간격 0으로 딱 붙음 */}
+                {tapes.length > 0 && (
+                  <img src={STACK_SHADOW} alt="" aria-hidden draggable={false} className="block w-full select-none" />
+                )}
+              </div>
+            ) : (
+              <AnimatePresence initial={false}>
+                {tapes.map((tape) => (
+                  <TapeRow
+                    key={tape.id}
+                    tape={tape}
+                    isOpen={openId === tape.id}
+                    hasOpenRow={openId !== null}
+                    onOpenChange={(open) => setOpenId(open ? tape.id : null)}
+                    onNavigate={() => navigate(`/tape/${tape.id}`)}
+                    onDelete={() => setConfirmDeleteId(tape.id)}
+                  />
+                ))}
+              </AnimatePresence>
+            )}
+          </>
+        ) : receivedTapes.length === 0 ? (
+          <div className="flex h-[400px] items-center justify-center px-[24px] text-center">
+            <p className="font-mix text-[14px] text-[#b6b6b6]">받은 카세트가 아직 없어요</p>
           </div>
-        )}
-        {viewMode === 'stack' ? (
+        ) : viewMode === 'stack' ? (
           <div className="px-[20px] pt-[20px]">
             <div className="flex flex-col gap-[4px]">
-              {tapes.map((tape) => (
+              {receivedTapes.map((tape) => (
                 <CassetteStackRow
                   key={tape.id}
                   tape={tape}
@@ -256,33 +362,40 @@ export default function TapeListPage() {
                   hasOpenRow={openId !== null}
                   onOpenChange={(open) => setOpenId(open ? tape.id : null)}
                   onNavigate={() => navigate(`/tape/${tape.id}`)}
-                  onDelete={() => setConfirmDeleteId(tape.id)}
+                  onDelete={() => {}}
                 />
               ))}
             </div>
-            {/* 스택 맨 아래 그림자 — 길이와 무관, 간격 0으로 딱 붙음 */}
-            {tapes.length > 0 && (
-              <img src={STACK_SHADOW} alt="" aria-hidden draggable={false} className="block w-full select-none" />
-            )}
+            <img src={STACK_SHADOW} alt="" aria-hidden draggable={false} className="block w-full select-none" />
           </div>
         ) : (
-          <AnimatePresence initial={false}>
-            {tapes.map((tape) => (
-              <TapeRow
+          <div>
+            {receivedTapes.map((tape) => (
+              <ReceivedTapeRow
                 key={tape.id}
                 tape={tape}
-                isOpen={openId === tape.id}
-                hasOpenRow={openId !== null}
-                onOpenChange={(open) => setOpenId(open ? tape.id : null)}
+                fromName={tape.from_name ?? ''}
                 onNavigate={() => navigate(`/tape/${tape.id}`)}
-                onDelete={() => setConfirmDeleteId(tape.id)}
               />
             ))}
-          </AnimatePresence>
+          </div>
         )}
       </div>
 
       <div className="shrink-0" style={{ height: 'env(safe-area-inset-bottom)' }} />
+
+      {/* 새 테이프 FAB (우하단 검은 원형 60px) — 내 카세트 탭에서만 */}
+      {activeTab === 'mine' && (
+        <button
+          type="button"
+          onClick={() => navigate('/new')}
+          aria-label="새 테이프"
+          className="absolute right-[20px] z-40 flex size-[60px] items-center justify-center rounded-full bg-[#111] shadow-[0_4px_12px_rgba(0,0,0,0.25)] active:brightness-90"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
+        >
+          <FabPlusIcon />
+        </button>
+      )}
 
       {/* ===== 삭제 확인 다이얼로그 (z-50) — 재생/편집 화면과 통일 ===== */}
       <AnimatePresence>
