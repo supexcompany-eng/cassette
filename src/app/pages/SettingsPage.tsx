@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../../lib/supabase'
+import { deleteAccount } from '../../lib/db'
 import { isButtonSoundOn, setButtonSoundOn } from '../../lib/prefs'
 import { getNickname, setNickname } from '../../lib/nickname'
 import { CONTACT_MAILTO, PRIVACY_URL, TERMS_URL } from '../../lib/appInfo'
@@ -97,9 +98,13 @@ export default function SettingsPage() {
   }
 
   const handleWithdraw = async () => {
-    // TODO(auth): 회원탈퇴 = 내 데이터(테이프·스토리지) 삭제 + 계정 삭제 (로그인 단계에서 완성)
     setConfirmLeave(false)
-    await handleLogout()
+    try {
+      await deleteAccount() // 내 데이터 전량 삭제 + 로그아웃
+    } catch {
+      // 실패해도 로그인 화면으로
+    }
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -248,9 +253,9 @@ export default function SettingsPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <p className="px-[24px] py-[10px] text-center font-['Orbit'] text-[16px] leading-[28px] text-[#111]">
-                회원탈퇴 시 모든 데이터가
+                탈퇴 시 모든 데이터는 삭제되며
                 <br />
-                영구 삭제되며 복구할 수 없습니다
+                복구되지 않습니다
               </p>
               <div className="mt-[8px] flex">
                 <button

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getSharedAudioContext } from '../lib/audioContext'
 
 /**
  * 오디오 재생 + VU 분석용 훅.
@@ -23,12 +24,7 @@ export function usePlayer() {
   const startInfoRef = useRef<{ ctxTime: number; offset: number; duration: number } | null>(null)
 
   const getCtx = () => {
-    if (!ctxRef.current) {
-      const Ctx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      ctxRef.current = new Ctx()
-    }
+    ctxRef.current = getSharedAudioContext()
     return ctxRef.current
   }
 
@@ -71,9 +67,14 @@ export function usePlayer() {
   useEffect(() => {
     return () => {
       stopInternal()
-      void ctxRef.current?.close()
-      ctxRef.current = null
+      // 공유 컨텍스트는 close하지 않는다. 이 훅이 만든 analyser만 분리.
+      try {
+        analyserRef.current?.disconnect()
+      } catch {
+        // ignore
+      }
       analyserRef.current = null
+      ctxRef.current = null
     }
   }, [])
 

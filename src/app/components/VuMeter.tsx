@@ -3,6 +3,7 @@ import { motion, useAnimationFrame, useMotionValue } from 'motion/react'
 import imgVuBg from '../../assets/img_player_vu_bg.png'
 import imgVuGlass from '../../assets/img_player_vu_glass.png'
 import imgVuPin from '../../assets/img_player_vu_pin.png'
+import { getSharedAudioContext } from '../../lib/audioContext'
 
 interface VuMeterProps {
   /** 녹음 중인 마이크 스트림 (있으면 이쪽 레벨을 분석) */
@@ -39,13 +40,8 @@ export default function VuMeter({ stream, playbackAnalyser, className }: VuMeter
       streamSourceRef.current = null
       return
     }
-    if (!ctxRef.current) {
-      const Ctx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      ctxRef.current = new Ctx()
-    }
-    const ctx = ctxRef.current
+    const ctx = getSharedAudioContext() // 공유 컨텍스트 (별도 생성 시 iOS 다중 컨텍스트 충돌)
+    ctxRef.current = ctx
     void ctx.resume()
     if (!micAnalyserRef.current) {
       const an = ctx.createAnalyser()
@@ -64,9 +60,20 @@ export default function VuMeter({ stream, playbackAnalyser, className }: VuMeter
 
   useEffect(() => {
     return () => {
-      void ctxRef.current?.close()
-      ctxRef.current = null
+      // 공유 컨텍스트는 close하지 않는다. 이 컴포넌트가 만든 노드만 분리.
+      try {
+        streamSourceRef.current?.disconnect()
+      } catch {
+        // ignore
+      }
+      try {
+        micAnalyserRef.current?.disconnect()
+      } catch {
+        // ignore
+      }
+      streamSourceRef.current = null
       micAnalyserRef.current = null
+      ctxRef.current = null
     }
   }, [])
 

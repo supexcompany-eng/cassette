@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { setRecordingAudioMode } from '../lib/audioSession'
+import { resumeSharedAudioContext, suspendSharedAudioContext } from '../lib/audioContext'
 
 export interface RecordingResult {
   blob: Blob
@@ -51,6 +53,17 @@ export function useRecorder(): UseRecorder {
     setStream(null)
     recorderRef.current = null
     chunksRef.current = []
+    // 녹음 종료 → 미디어 볼륨 버스로 복귀.
+    // 순서: WebAudio suspend(WebKit이 세션 놓게) → 네이티브 세션 .playback 재활성화 → WebAudio resume.
+    // (백그라운드 복귀가 하던 "오디오 놓기→세션 리셋→재개"를 흉내)
+    window.setTimeout(() => {
+      void (async () => {
+        await suspendSharedAudioContext()
+        await setRecordingAudioMode(false)
+        await new Promise((r) => setTimeout(r, 60))
+        resumeSharedAudioContext()
+      })()
+    }, 300)
   }, [])
 
   useEffect(() => () => cleanup(), [cleanup])
@@ -62,12 +75,8 @@ export function useRecorder(): UseRecorder {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error('이 환경에서는 마이크를 사용할 수 없습니다. 실기기에서 다시 시도해 주세요.')
       }
-      // iOS: 에코캔슬/노이즈서프레션이 켜지면 음성처리 유닛(VPIO)이 동작해 오디오 세션을
-      // 통화용(수화부·저음량)으로 바꿔 효과음·재생이 전부 작아진다(녹음 버튼 누른 뒤부터).
-      // → 끄면 일반 녹음 모드라 큰 볼륨이 유지됨.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true },
-      })
+      await setRecordingAudioMode(true) // 녹음 모드(.playAndRecord)로 전환 후 마이크 요청
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       setStream(stream)
       const mimeType = pickMimeType()

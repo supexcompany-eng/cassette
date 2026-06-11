@@ -3,28 +3,31 @@ import recBg from '../../assets/btn_player_rec_bg.png'
 import shareBg from '../../assets/btn_player_share.png'
 import clickSound from '../../assets/sound/sound_click.mp3'
 import { isButtonSoundOn } from '../../lib/prefs'
+import { getSharedAudioContext, resumeSharedAudioContext } from '../../lib/audioContext'
 
-// 버튼 클릭 효과음 — WebAudio로 미리 디코딩해두고 누를 때마다 새 소스로 즉시 재생.
-// (HTMLAudio 단일 인스턴스는 연타 시 직전 재생을 못 끊어 무음이 생김 → 버퍼 소스로 해결)
-let clickCtx: AudioContext | null = null
+// 버튼 클릭 효과음 — 공유 AudioContext에 미리 디코딩해두고 누를 때마다 새 소스로 즉시 재생.
+// (별도 컨텍스트를 만들면 iOS에서 다중 컨텍스트 충돌로 볼륨이 작아져 → 공유 컨텍스트 사용)
 let clickBuffer: AudioBuffer | null = null
 let clickGain: GainNode | null = null
+let clickLoading = false
 const CLICK_VOLUME = 0.6 // 효과음 볼륨 (원래 대비 -40%)
 function ensureClickAudio() {
-  if (clickCtx) return
+  if (clickGain) return
   try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    clickCtx = new Ctx()
-    clickGain = clickCtx.createGain()
+    const ctx = getSharedAudioContext()
+    clickGain = ctx.createGain()
     clickGain.gain.value = CLICK_VOLUME
-    clickGain.connect(clickCtx.destination)
-    void fetch(clickSound)
-      .then((r) => r.arrayBuffer())
-      .then((b) => clickCtx!.decodeAudioData(b))
-      .then((buf) => {
-        clickBuffer = buf
-      })
-      .catch(() => {})
+    clickGain.connect(ctx.destination)
+    if (!clickLoading) {
+      clickLoading = true
+      void fetch(clickSound)
+        .then((r) => r.arrayBuffer())
+        .then((b) => ctx.decodeAudioData(b))
+        .then((buf) => {
+          clickBuffer = buf
+        })
+        .catch(() => {})
+    }
   } catch {
     // WebAudio 불가 환경 — 효과음 생략
   }
@@ -35,13 +38,13 @@ if (typeof window !== 'undefined') ensureClickAudio()
 function playClick() {
   if (!isButtonSoundOn()) return // 설정에서 버튼음 끈 경우
   ensureClickAudio()
-  if (!clickCtx) return
-  void clickCtx.resume() // iOS: 첫 탭(제스처) 때 재개
+  resumeSharedAudioContext() // iOS: 첫 탭(제스처) 때 재개
   if (!clickBuffer) return
   try {
-    const src = clickCtx.createBufferSource()
+    const ctx = getSharedAudioContext()
+    const src = ctx.createBufferSource()
     src.buffer = clickBuffer
-    src.connect(clickGain ?? clickCtx.destination)
+    src.connect(clickGain ?? ctx.destination)
     src.start(0)
   } catch {
     // ignore

@@ -90,6 +90,29 @@ export async function deleteTape(id: string) {
   if (error) throw error
 }
 
+/**
+ * 회원 탈퇴 — 현재 로그인 사용자의 모든 데이터(테이프·세그먼트·오디오 파일)를 삭제하고 로그아웃한다.
+ * NOTE(auth): auth.users 레코드 자체 삭제는 service role이 필요해 Edge Function으로 별도 처리 예정.
+ *             현재는 데이터 전량 삭제 + 로그아웃까지 수행한다.
+ */
+export async function deleteAccount(): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth.user?.id
+  if (!userId) {
+    await supabase.auth.signOut()
+    return
+  }
+  const { data: tapes } = await supabase.from('tapes').select('id').eq('user_id', userId)
+  for (const t of tapes ?? []) {
+    try {
+      await deleteTape(t.id)
+    } catch {
+      // 일부 실패해도 계속 진행
+    }
+  }
+  await supabase.auth.signOut()
+}
+
 export async function listSegments(tapeId: string): Promise<Segment[]> {
   const { data, error } = await supabase
     .from('segments')

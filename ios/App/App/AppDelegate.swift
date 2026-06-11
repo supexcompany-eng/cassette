@@ -1,6 +1,5 @@
 import UIKit
 import Capacitor
-import AVFoundation
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -8,40 +7,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // 오디오: 마이크 사용(getUserMedia) 시 iOS가 수화부(작은 스피커)로 라우팅해 볼륨이 작아지는 문제 →
-        // playAndRecord + defaultToSpeaker로 큰 스피커 출력 강제(헤드폰/블루투스는 그쪽 우선).
-        configureAudioSession()
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(handleAudioRouteChange(_:)),
-            name: AVAudioSession.routeChangeNotification, object: nil)
-
         // Override point for customization after application launch.
         // window 는 didFinishLaunching 직후(스토리보드 로드 시) 생성되므로 다음 런루프에서 오버레이를 붙인다.
         DispatchQueue.main.async { [weak self] in
             self?.showSplashOverlay()
         }
         return true
-    }
-
-    /// 오디오 출력을 큰 스피커로 (헤드폰/블루투스 연결 시엔 그쪽으로). 녹음(playAndRecord)과 병행.
-    private func configureAudioSession() {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playAndRecord, mode: .default,
-                                    options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
-            try session.setActive(true)
-        } catch {
-            // 무시 — 일부 환경에서 설정 실패해도 앱 동작엔 영향 없음
-        }
-    }
-
-    /// WebKit이 마이크 사용 후 수화부로 되돌리면(현재 출력이 수화부면) 다시 큰 스피커로 복구.
-    @objc private func handleAudioRouteChange(_ notification: Notification) {
-        let session = AVAudioSession.sharedInstance()
-        let usingReceiver = session.currentRoute.outputs.contains { $0.portType == .builtInReceiver }
-        if usingReceiver {
-            configureAudioSession()
-        }
     }
 
     /// 네이티브 스플래시 오버레이.
@@ -106,8 +77,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // 포그라운드 복귀 시 오디오 출력을 큰 스피커로 재확인.
-        configureAudioSession()
+        // Restart any tasks that were paused (or not yet started) while the application was inactive.
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

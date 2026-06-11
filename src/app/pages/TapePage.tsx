@@ -283,9 +283,9 @@ export default function TapePage() {
     setRecIntent(true)
     recIntentRef.current = true
     try {
-      // REC 클릭 효과음이 녹음 앞부분에 섞이지 않도록 0.5초 버퍼 후 실제 녹음 시작.
+      // REC 클릭 효과음이 녹음 앞부분에 섞이지 않도록 0.2초 버퍼 후 실제 녹음 시작.
       // (버퍼 중 STOP 누르면 recIntentRef가 false가 되어 시작 취소)
-      await new Promise((r) => setTimeout(r, 500))
+      await new Promise((r) => setTimeout(r, 200))
       if (!recIntentRef.current) return
       await recorder.start()
     } catch (e) {
@@ -504,6 +504,7 @@ export default function TapePage() {
 
   return (
     <MobileFrame innerClassName="bg-[#f5f3f1] text-[#222]" outerClassName="bg-[#f5f3f1]">
+
       {/* ===== LIST (z-0, 맨 아래) — body 밑으로 스크롤 ===== */}
       <div
         ref={scrollRef}
