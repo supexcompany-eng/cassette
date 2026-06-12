@@ -1,9 +1,9 @@
+import { supabase } from './supabase'
+
 /**
  * 사용자 닉네임 (보내는사람 기본값 / 설정 표시).
- * 최초엔 형용사+명사 랜덤 조합으로 생성, 이후 사용자가 수정 가능.
- *
- * NOTE(auth): 지금은 localStorage 임시 저장이라 기기별·중복 허용. 로그인 단계에서
- * profiles 테이블(user_id ↔ nickname unique)로 교체하고 사용자간 중복 검사를 붙인다.
+ * 저장 위치: Supabase 계정(auth user_metadata.nickname) — 기기 간 동기화. 중복 검사 없음.
+ * localStorage는 빠른 캐시(동기 읽기용)로 함께 사용.
  */
 
 const KEY = 'cassette.nickname'
@@ -25,13 +25,21 @@ function randomNickname(): string {
   return `${a} ${n}`
 }
 
-/** 현재 닉네임 (없으면 랜덤 생성해 저장) */
+function cache(name: string) {
+  try {
+    localStorage.setItem(KEY, name)
+  } catch {
+    // ignore
+  }
+}
+
+/** 현재 닉네임 (캐시 기준, 동기). 캐시 비었으면 랜덤 생성해 캐시 — 계정 동기화는 ensureNickname이 담당 */
 export function getNickname(): string {
   try {
     let n = localStorage.getItem(KEY)
     if (!n) {
       n = randomNickname()
-      localStorage.setItem(KEY, n)
+      cache(n)
     }
     return n
   } catch {
@@ -39,11 +47,45 @@ export function getNickname(): string {
   }
 }
 
-/** 닉네임 저장 */
-export function setNickname(name: string): void {
+/** 닉네임 변경 — 캐시 즉시 반영 + 계정(user_metadata)에 저장 */
+export async function setNickname(name: string): Promise<void> {
+  cache(name)
   try {
-    localStorage.setItem(KEY, name)
+    await supabase.auth.updateUser({ data: { nickname: name } })
   } catch {
-    // ignore
+    // 네트워크 실패해도 캐시엔 반영됨
+  }
+}
+
+/**
+ * 로그인 후 호출 — 계정에 닉네임이 있으면 그걸 캐시(기기 동기화),
+ * 없으면 (기존 로컬 또는 새 랜덤) 닉네임을 계정에 저장한다. 최종 닉네임 반환.
+ */
+export async function ensureNickname(): Promise<string> {
+  try {
+    const { data } = await supabase.auth.getUser()
+    const user = data.user
+    if (!user) return getNickname()
+    const meta = user.user_metadata?.nickname as string | undefined
+    if (meta && meta.trim()) {
+      cache(meta)
+      return meta
+    }
+    let local: string | null = null
+    try {
+      local = localStorage.getItem(KEY)
+    } catch {
+      // ignore
+    }
+    const next = local && local.trim() ? local : randomNickname()
+    try {
+      await supabase.auth.updateUser({ data: { nickname: next } })
+    } catch {
+      // ignore
+    }
+    cache(next)
+    return next
+  } catch {
+    return getNickname()
   }
 }

@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
 import { supabase } from '../../lib/supabase'
+import { ensureNickname } from '../../lib/nickname'
 
 interface SessionState {
   session: Session | null
@@ -29,6 +30,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
     return () => sub.subscription.unsubscribe()
   }, [])
+
+  // 로그인되면 닉네임을 계정과 동기화(없으면 생성)
+  useEffect(() => {
+    if (session) void ensureNickname()
+  }, [session])
 
   // 네이티브: OAuth 복귀 딥링크에서 인증 코드 → 세션 교환
   useEffect(() => {

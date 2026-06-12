@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { motion, AnimatePresence } from 'motion/react'
 import { supabase } from '../../lib/supabase'
 import { deleteAccount } from '../../lib/db'
 import { isButtonSoundOn, setButtonSoundOn } from '../../lib/prefs'
-import { getNickname, setNickname } from '../../lib/nickname'
+import { getNickname, setNickname, ensureNickname } from '../../lib/nickname'
 import { CONTACT_MAILTO, PRIVACY_URL, TERMS_URL } from '../../lib/appInfo'
 import { shareApp } from '../../lib/share'
 import MobileFrame from '../components/MobileFrame'
@@ -71,6 +71,12 @@ export default function SettingsPage() {
   const [nickname, setNick] = useState(() => getNickname())
   const [editingNick, setEditingNick] = useState(false)
   const [nickDraft, setNickDraft] = useState('')
+  // 계정에 저장된 닉네임으로 동기화(기기 간 일치)
+  useEffect(() => {
+    ensureNickname()
+      .then(setNick)
+      .catch(() => {})
+  }, [])
   const startEditNick = () => {
     setNickDraft(nickname)
     setEditingNick(true)
@@ -78,8 +84,8 @@ export default function SettingsPage() {
   const saveNick = () => {
     const v = nickDraft.trim()
     if (v) {
-      setNickname(v)
       setNick(v)
+      void setNickname(v) // 계정에 저장(낙관적 반영)
     }
     setEditingNick(false)
   }
