@@ -454,9 +454,12 @@ export default function TapePage() {
 
   // 미리보기에서 보내기 → OS 공유 시트. navigator.share는 탭 제스처 안에서 동기 호출해야 하므로
   // 앞에 await를 두지 않는다(쪽지는 미리보기 진입 시 이미 저장됨).
+  // 공유 시트가 닫혀 앱으로 돌아오면 미리보기/쪽지 화면을 닫고 카세트(플레이어) 화면으로.
   const handleSendShare = () => {
     if (!id) return
-    void shareTape({ id, caption: tape?.caption })
+    void shareTape({ id, caption: tape?.caption }).finally(() => {
+      setShareStep('none')
+    })
   }
 
   const handleDeleteTape = async () => {

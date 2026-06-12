@@ -93,7 +93,7 @@ export default function NoteComposeSheet({
             maxLength={TO_MAX}
             onChange={(e) => setTo(e.target.value.slice(0, TO_MAX))}
             placeholder="받으시는 분 이름을 써주세요"
-            className="w-full rounded-[8px] bg-white px-[14px] py-[16px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#b3aea6]"
+            className="w-full rounded-[8px] bg-white px-[14px] py-[15px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#b3aea6]"
           />
           <div className="flex flex-col gap-[10px] rounded-[8px] bg-white px-[14px] py-[16px]">
             <p className="font-['Orbit'] text-[12px] text-[#111]">쪽지 내용</p>
@@ -112,7 +112,7 @@ export default function NoteComposeSheet({
             maxLength={FROM_MAX}
             onChange={(e) => setFrom(e.target.value.slice(0, FROM_MAX))}
             placeholder="보내시는 분 이름을 써주세요"
-            className="w-full rounded-[8px] bg-white px-[14px] py-[16px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#b3aea6]"
+            className="w-full rounded-[8px] bg-white px-[14px] py-[15px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#b3aea6]"
           />
         </div>
       </div>

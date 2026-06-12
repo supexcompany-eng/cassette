@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router'
+import { useParams, useNavigate } from 'react-router'
+import { Capacitor } from '@capacitor/core'
 import { getTape, listSegments } from '../../lib/db'
 import { useTapePlayback } from '../../hooks/useTapePlayback'
 import ShareStage from '../components/ShareStage'
+import icDownload from '../../assets/ic_download.svg'
 import type { Segment, Tape } from '../../lib/types'
 
 // 랜딩: 393×650, 데크 -44(카세트 frame 54), 쪽지 470 (데크 바닥 500과 30px 겹침)
@@ -22,6 +24,7 @@ function formatDate(iso?: string | null): string {
 /** 공유 링크(/s/:id) 랜딩 페이지 — 받은 사람이 보는 화면. 393×650을 뷰포트에 맞게 스케일. */
 export default function SharePage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [tape, setTape] = useState<Tape | null>(null)
   const [segments, setSegments] = useState<Segment[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,6 +83,13 @@ export default function SharePage() {
           height={STAGE_H}
           deckTop={DECK_TOP}
           memoTop={MEMO_TOP}
+          rightIcon={icDownload}
+          onRightClick={() => {
+            // 웹: 커스텀 스킴으로 앱 열기(설치 시) → /receive. 네이티브에선 바로 받기 화면.
+            if (!id) return
+            if (Capacitor.isNativePlatform()) navigate(`/receive/${id}`)
+            else window.location.href = `com.happycoding.cassette://s/${id}`
+          }}
         />
       </div>
     </div>

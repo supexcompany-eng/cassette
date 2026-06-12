@@ -33,13 +33,14 @@ export default function CassetteDeck({ tape, segments, playback }: CassetteDeckP
     } else if (type === 'stop') {
       stop()
     } else if (type === 'rew') {
-      const next = Math.max(0, currentIndex - 1)
-      setCurrentIndex(next)
-      if (isPlaying) playFrom(next)
+      // 받은/공유 플레이어: REW = 맨 처음 구간으로
+      setCurrentIndex(0)
+      if (isPlaying) playFrom(0)
     } else if (type === 'ff') {
-      const next = Math.min(Math.max(0, segments.length - 1), currentIndex + 1)
-      setCurrentIndex(next)
-      if (isPlaying) playFrom(next)
+      // 받은/공유 플레이어: FF = 맨 끝 구간으로
+      const last = Math.max(0, segments.length - 1)
+      setCurrentIndex(last)
+      if (isPlaying) playFrom(last)
     }
   }
 

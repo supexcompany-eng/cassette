@@ -172,7 +172,7 @@ export default function SettingsPage() {
 
             {/* 구분선 */}
             <div className="flex h-[30px] items-center px-[20px]">
-              <div className="h-[0.5px] w-full bg-[#dcd6d0]" />
+              <div className="h-[0.5px] w-full bg-[#e3ded9]" />
             </div>
 
             {/* 친구 초대하기 */}

@@ -14,9 +14,17 @@ export default function LoginPage() {
   const { session } = useSession()
   const [busy, setBusy] = useState<OAuthProvider | null>(null)
 
-  // 로그인되면(딥링크 복귀 포함) 메인으로
+  // 로그인되면(딥링크 복귀 포함) 메인으로. 단 보관 대기 카세트가 있으면 그 받기 화면으로.
   useEffect(() => {
-    if (session) navigate('/', { replace: true })
+    if (!session) return
+    let pending: string | null = null
+    try {
+      pending = localStorage.getItem('cassette.pendingReceive')
+      if (pending) localStorage.removeItem('cassette.pendingReceive')
+    } catch {
+      // ignore
+    }
+    navigate(pending ? `/receive/${pending}` : '/', { replace: true })
   }, [session, navigate])
 
   const login = (provider: OAuthProvider) => {

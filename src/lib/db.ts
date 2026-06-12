@@ -1,5 +1,18 @@
 import { supabase } from './supabase'
+import { uploadAudio, getAudioUrl } from './storage'
 import type { Tape, TapeWithStats, Segment } from './types'
+
+function mapStats(row: Tape & { segments: { duration_seconds: number | null }[] | null }): TapeWithStats {
+  const { segments, ...tape } = row
+  const segs = segments ?? []
+  return {
+    ...tape,
+    caption: tape.caption ?? '',
+    design: tape.design ?? 'simple_3',
+    segment_count: segs.length,
+    total_duration_seconds: segs.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0),
+  }
+}
 
 export async function listTapes(): Promise<Tape[]> {
   const { data, error } = await supabase
@@ -10,28 +23,98 @@ export async function listTapes(): Promise<Tape[]> {
   return data ?? []
 }
 
+/** 내 카세트 (직접 만든 것 — 받은 것 제외) */
 export async function listTapesWithStats(): Promise<TapeWithStats[]> {
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth.user?.id
+  if (!userId) return []
   const { data, error } = await supabase
     .from('tapes')
     .select('*, segments(duration_seconds)')
+    .eq('user_id', userId)
+    .or('is_received.is.null,is_received.eq.false')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data ?? []).map((row: Tape & { segments: { duration_seconds: number | null }[] | null }) => {
-    const segments = row.segments ?? []
-    return {
-      id: row.id,
-      title: row.title,
-      caption: row.caption ?? '',
-      design: row.design ?? 'simple_3',
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      segment_count: segments.length,
-      total_duration_seconds: segments.reduce(
-        (sum, s) => sum + (s.duration_seconds ?? 0),
-        0,
-      ),
+  return (data ?? []).map(mapStats)
+}
+
+/** 받은 카세트 (상대에게 받아 보관한 것) */
+export async function listReceivedTapesWithStats(): Promise<TapeWithStats[]> {
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth.user?.id
+  if (!userId) return []
+  const { data, error } = await supabase
+    .from('tapes')
+    .select('*, segments(duration_seconds)')
+    .eq('user_id', userId)
+    .eq('is_received', true)
+    .order('received_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(mapStats)
+}
+
+export type SaveReceivedResult = { status: 'saved' | 'already' | 'own'; tapeId: string }
+
+/** 받은 카세트 보관 — 원본(공유) 카세트를 내 계정으로 복사(세그먼트·오디오 포함). 보관된 카세트 id 반환. */
+export async function saveReceived(sourceTapeId: string): Promise<SaveReceivedResult> {
+  const { data: auth } = await supabase.auth.getUser()
+  const userId = auth.user?.id
+  if (!userId) throw new Error('로그인이 필요합니다')
+
+  const source = await getTape(sourceTapeId)
+  if (!source) throw new Error('카세트를 찾을 수 없어요')
+  if (source.user_id === userId) return { status: 'own', tapeId: sourceTapeId } // 내가 만든 것
+
+  // 중복 보관 방지
+  const { data: existing } = await supabase
+    .from('tapes')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('source_tape_id', sourceTapeId)
+    .maybeSingle()
+  if (existing) return { status: 'already', tapeId: existing.id as string }
+
+  const sourceSegments = await listSegments(sourceTapeId)
+
+  const { data: newTape, error } = await supabase
+    .from('tapes')
+    .insert({
+      title: source.title,
+      caption: source.caption,
+      design: source.design,
+      user_id: userId,
+      is_received: true,
+      source_tape_id: sourceTapeId,
+      received_at: new Date().toISOString(),
+      to_name: source.to_name ?? null,
+      from_name: source.from_name ?? null,
+      note: source.note ?? null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+
+  // 세그먼트 + 오디오 복제 (공개 URL → 내 새 tape 폴더로 재업로드)
+  for (const seg of sourceSegments) {
+    let newPath: string | null = null
+    if (seg.audio_path) {
+      try {
+        const blob = await (await fetch(getAudioUrl(seg.audio_path))).blob()
+        const ext = seg.audio_path.split('.').pop() || 'webm'
+        newPath = await uploadAudio(newTape.id, blob, ext)
+      } catch {
+        newPath = null // 오디오 복제 실패해도 세그먼트는 보존
+      }
     }
-  })
+    await insertSegment({
+      tape_id: newTape.id,
+      position: seg.position,
+      message: seg.message,
+      duration_seconds: seg.duration_seconds,
+      audio_path: newPath,
+    })
+  }
+  return { status: 'saved', tapeId: newTape.id as string }
 }
 
 export async function getTape(id: string): Promise<Tape | null> {
@@ -96,18 +179,27 @@ export async function deleteTape(id: string) {
  *             현재는 데이터 전량 삭제 + 로그아웃까지 수행한다.
  */
 export async function deleteAccount(): Promise<void> {
+  // 1순위: Edge Function으로 데이터 + auth 계정 레코드까지 완전 삭제 (service role)
+  try {
+    const { error } = await supabase.functions.invoke('delete-account')
+    if (!error) {
+      await supabase.auth.signOut()
+      return
+    }
+  } catch {
+    // Edge Function 미배포/실패 → 아래 클라이언트 폴백
+  }
+  // 폴백: 최소한 내 데이터(테이프·세그먼트·스토리지)는 삭제하고 로그아웃
   const { data: auth } = await supabase.auth.getUser()
   const userId = auth.user?.id
-  if (!userId) {
-    await supabase.auth.signOut()
-    return
-  }
-  const { data: tapes } = await supabase.from('tapes').select('id').eq('user_id', userId)
-  for (const t of tapes ?? []) {
-    try {
-      await deleteTape(t.id)
-    } catch {
-      // 일부 실패해도 계속 진행
+  if (userId) {
+    const { data: tapes } = await supabase.from('tapes').select('id').eq('user_id', userId)
+    for (const t of tapes ?? []) {
+      try {
+        await deleteTape(t.id)
+      } catch {
+        // 일부 실패해도 계속
+      }
     }
   }
   await supabase.auth.signOut()

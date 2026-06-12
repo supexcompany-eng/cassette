@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useLocation } from 'react-router'
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
 import { Trash2 } from 'lucide-react'
-import { deleteTape, listTapesWithStats } from '../../lib/db'
+import { deleteTape, listTapesWithStats, listReceivedTapesWithStats } from '../../lib/db'
 import type { TapeWithStats } from '../../lib/types'
 import MobileFrame from '../components/MobileFrame'
 import CassetteStackRow from '../components/CassetteStackRow'
@@ -16,6 +16,7 @@ import tabNormal from '../../assets/img_tab_bg_normal.png'
 type ViewMode = 'list' | 'stack'
 type MainTab = 'mine' | 'received'
 const VIEW_MODE_KEY = 'cassette.viewMode'
+const MAIN_TAB_KEY = 'cassette.mainTab'
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -62,37 +63,102 @@ function FolderTab({ label, active, onClick, left }: { label: string; active: bo
   )
 }
 
-/** 받은 카세트 리스트 행 — 제목 + from. 보내는사람 + 통계 (Figma 받은 카세트) */
-function ReceivedTapeRow({ tape, fromName, onNavigate }: { tape: TapeWithStats; fromName: string; onNavigate: () => void }) {
+/** 받은 카세트 리스트 행 — 제목 + from. 보내는사람 + 통계. 스와이프 삭제(내 카세트와 동일) */
+function ReceivedTapeRow({
+  tape,
+  fromName,
+  isOpen,
+  hasOpenRow,
+  onOpenChange,
+  onNavigate,
+  onDelete,
+}: {
+  tape: TapeWithStats
+  fromName: string
+  isOpen: boolean
+  hasOpenRow: boolean
+  onOpenChange: (open: boolean) => void
+  onNavigate: () => void
+  onDelete: () => void
+}) {
+  const x = useMotionValue(0)
+  const draggedRef = useRef(false)
   const [pressed, setPressed] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const caption = tape.caption.trim() ? tape.caption : CAPTION_PLACEHOLDER
+
+  useEffect(() => {
+    const controls = animate(x, isOpen ? REVEAL_X : 0, SWIPE_SPRING)
+    return controls.stop
+  }, [isOpen, x])
+
   return (
-    <button
-      type="button"
-      onClick={onNavigate}
-      onPointerDown={() => setPressed(true)}
-      onPointerUp={() => setPressed(false)}
-      onPointerLeave={() => setPressed(false)}
-      onPointerCancel={() => setPressed(false)}
-      className={`flex h-[114px] w-full flex-col justify-center gap-[6px] px-[24px] py-[18px] text-left ${
-        pressed ? 'rounded-[8px] bg-[#f0edea]' : 'bg-[#f5f3f1]'
-      }`}
-    >
-      <p className="w-full truncate font-mix text-[16px] leading-[28px] text-[#111]">{caption}</p>
-      <p className="w-full truncate font-mix text-[13px] leading-[20px] text-[#888]">from. {fromName}</p>
-      <div className="flex w-full items-center justify-between gap-[10px]">
-        <div className="flex min-w-0 items-center gap-[8px]">
-          <p className="whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">{tape.segment_count}구간</p>
-          <div className="h-[10px] w-px bg-[#cbc6bd]" />
-          <p className="whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">
-            {formatDuration(tape.total_duration_seconds)}
+    <div className="relative h-[114px] w-full overflow-hidden" data-tape-row>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete()
+        }}
+        className="absolute right-[20px] top-1/2 flex size-[40px] -translate-y-1/2 items-center justify-center rounded-full bg-[#F54C4C]"
+        aria-label="delete tape"
+      >
+        <Trash2 className="size-[20px] text-white" strokeWidth={1.5} />
+      </button>
+
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: REVEAL_X, right: 0 }}
+        dragElastic={{ left: 0.15, right: 0 }}
+        dragMomentum={false}
+        style={{ x }}
+        onTapStart={() => setPressed(true)}
+        onTapCancel={() => setPressed(false)}
+        onDragStart={() => {
+          draggedRef.current = true
+          setPressed(false)
+          setDragging(true)
+        }}
+        onDragEnd={(_, info) => {
+          setDragging(false)
+          const moved = Math.abs(info.offset.x) > 5
+          const next = info.offset.x < REVEAL_X / 2 || info.velocity.x < SWIPE_VELOCITY_THRESHOLD
+          animate(x, next ? REVEAL_X : 0, SWIPE_SPRING)
+          onOpenChange(next)
+          if (!moved) draggedRef.current = false
+        }}
+        onTap={() => {
+          setPressed(false)
+          if (draggedRef.current) {
+            draggedRef.current = false
+            return
+          }
+          if (isOpen || hasOpenRow) {
+            onOpenChange(false)
+            return
+          }
+          onNavigate()
+        }}
+        className={`absolute inset-0 flex cursor-pointer flex-col justify-center gap-[6px] px-[24px] py-[18px] ${
+          pressed || dragging || isOpen ? 'rounded-[8px] bg-[#f0edea]' : 'bg-[#f5f3f1]'
+        }`}
+      >
+        <p className="w-full truncate font-mix text-[16px] leading-[28px] text-[#111]">{caption}</p>
+        <p className="w-full truncate font-mix text-[13px] leading-[20px] text-[#888]">from. {fromName}</p>
+        <div className="flex w-full items-center justify-between gap-[10px]">
+          <div className="flex min-w-0 items-center gap-[8px]">
+            <p className="whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">{tape.segment_count}구간</p>
+            <div className="h-[10px] w-px bg-[#cbc6bd]" />
+            <p className="whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">
+              {formatDuration(tape.total_duration_seconds)}
+            </p>
+          </div>
+          <p className="shrink-0 whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">
+            {formatDate(tape.created_at)}
           </p>
         </div>
-        <p className="shrink-0 whitespace-nowrap font-mix text-[13px] leading-[20px] text-[#888]">
-          {formatDate(tape.created_at)}
-        </p>
-      </div>
-    </button>
+      </motion.div>
+    </div>
   )
 }
 
@@ -198,14 +264,30 @@ function TapeRow({ tape, isOpen, hasOpenRow, onOpenChange, onNavigate, onDelete 
 
 export default function TapeListPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [tapes, setTapes] = useState<TapeWithStats[]>([])
+  const [receivedTapes, setReceivedTapes] = useState<TapeWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<MainTab>('mine')
-  // TODO(auth): 받은 카세트 = 수신 관계 + 발신자 닉네임 (인증 단계에서 연결). 지금은 빈 목록
-  const receivedTapes: TapeWithStats[] = []
+  const [activeTab, setActiveTab] = useState<MainTab>(() => {
+    const fromState = (location.state as { tab?: MainTab } | null)?.tab
+    if (fromState === 'received' || fromState === 'mine') return fromState
+    try {
+      return localStorage.getItem(MAIN_TAB_KEY) === 'received' ? 'received' : 'mine'
+    } catch {
+      return 'mine'
+    }
+  })
+  // 탭 선택 유지 (상세 갔다 와도 복원)
+  useEffect(() => {
+    try {
+      localStorage.setItem(MAIN_TAB_KEY, activeTab)
+    } catch {
+      // ignore
+    }
+  }, [activeTab])
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     try {
       return localStorage.getItem(VIEW_MODE_KEY) === 'stack' ? 'stack' : 'list'
@@ -249,6 +331,13 @@ export default function TapeListPage() {
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+    listReceivedTapesWithStats()
+      .then((t) => {
+        if (!cancelled) setReceivedTapes(t)
+      })
+      .catch(() => {
+        // 받은 카세트 로드 실패는 조용히 무시
+      })
     return () => {
       cancelled = true
     }
@@ -260,6 +349,7 @@ export default function TapeListPage() {
     try {
       await deleteTape(id)
       setTapes((prev) => prev.filter((t) => t.id !== id))
+      setReceivedTapes((prev) => prev.filter((t) => t.id !== id))
       setOpenId(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete')
@@ -361,8 +451,8 @@ export default function TapeListPage() {
                   isOpen={openId === tape.id}
                   hasOpenRow={openId !== null}
                   onOpenChange={(open) => setOpenId(open ? tape.id : null)}
-                  onNavigate={() => navigate(`/tape/${tape.id}`)}
-                  onDelete={() => {}}
+                  onNavigate={() => navigate(`/received/${tape.id}`)}
+                  onDelete={() => setConfirmDeleteId(tape.id)}
                 />
               ))}
             </div>
@@ -375,7 +465,11 @@ export default function TapeListPage() {
                 key={tape.id}
                 tape={tape}
                 fromName={tape.from_name ?? ''}
-                onNavigate={() => navigate(`/tape/${tape.id}`)}
+                isOpen={openId === tape.id}
+                hasOpenRow={openId !== null}
+                onOpenChange={(open) => setOpenId(open ? tape.id : null)}
+                onNavigate={() => navigate(`/received/${tape.id}`)}
+                onDelete={() => setConfirmDeleteId(tape.id)}
               />
             ))}
           </div>

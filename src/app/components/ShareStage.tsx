@@ -12,6 +12,15 @@ interface ShareStageProps {
   headerText: string
   /** 있으면 헤더 우측에 X(닫기) (미리보기). 없으면 워드마크만 (랜딩) */
   onClose?: () => void
+  /** 헤더 우측 아이콘 버튼 (랜딩/받기 — 다운로드/보관/삭제). onClose 없을 때 사용 */
+  rightIcon?: string
+  onRightClick?: () => void
+  rightDisabled?: boolean
+  /** 헤더 좌측 아이콘 버튼 (받기 화면 — 뒤로) */
+  leftIcon?: string
+  onLeftClick?: () => void
+  /** 스테이지 내부 헤더 숨김 (헤더를 스케일 밖에서 따로 그릴 때 — 받기 화면) */
+  hideHeader?: boolean
   toName: string
   note: string
   fromName: string
@@ -33,6 +42,12 @@ export default function ShareStage({
   playback,
   headerText,
   onClose,
+  rightIcon,
+  onRightClick,
+  rightDisabled,
+  leftIcon,
+  onLeftClick,
+  hideHeader,
   toName,
   note,
   fromName,
@@ -46,8 +61,19 @@ export default function ShareStage({
   return (
     <div className="relative shrink-0" style={{ width, height }}>
       {/* 헤더 */}
-      <div className="absolute inset-x-0 top-0 z-10 flex h-[64px] items-center px-[16px]">
-        <div className="size-[40px] shrink-0" aria-hidden />
+      <div className={`absolute inset-x-0 top-0 z-10 flex h-[64px] items-center px-[16px] ${hideHeader ? 'hidden' : ''}`}>
+        {leftIcon ? (
+          <button
+            type="button"
+            onClick={onLeftClick}
+            className="flex size-[40px] shrink-0 items-center justify-center"
+            aria-label="뒤로"
+          >
+            <img src={leftIcon} alt="" className="size-[24px]" aria-hidden />
+          </button>
+        ) : (
+          <div className="size-[40px] shrink-0" aria-hidden />
+        )}
         <p className="min-w-px flex-1 text-center font-mix text-[20px] leading-[32px] text-[#111]">{headerText}</p>
         {onClose ? (
           <button
@@ -57,6 +83,16 @@ export default function ShareStage({
             aria-label="닫기"
           >
             <X className="size-[24px] text-[#111]" strokeWidth={2} />
+          </button>
+        ) : rightIcon ? (
+          <button
+            type="button"
+            onClick={onRightClick}
+            disabled={rightDisabled}
+            className="flex size-[40px] shrink-0 items-center justify-center disabled:opacity-40"
+            aria-label="보관"
+          >
+            <img src={rightIcon} alt="" className="size-[24px]" aria-hidden />
           </button>
         ) : (
           <div className="size-[40px] shrink-0" aria-hidden />

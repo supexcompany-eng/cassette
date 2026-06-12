@@ -210,8 +210,8 @@ export default function SegmentItem({
           onClick={(e) => !readOnly && e.stopPropagation()}
           onPointerDown={(e) => !readOnly && e.stopPropagation()}
           onTouchStart={(e) => !readOnly && e.stopPropagation()}
-          placeholder={readOnly ? '' : '메시지 적기'}
-          className="min-w-[20px] max-w-full bg-transparent font-mix text-[14px] leading-normal text-[#111] outline-none placeholder:text-[#b3aea6] [field-sizing:content]"
+          placeholder={readOnly ? '' : '트랙 메모'}
+          className="min-w-[20px] max-w-full bg-transparent font-mix text-[14px] leading-normal text-[#111] outline-none placeholder:text-[#d9d9d9] [field-sizing:content]"
         />
         <div className="flex-1" aria-hidden />
         <span className="shrink-0 text-right font-mix text-[12px] leading-[18px] text-[#888]">{duration}</span>

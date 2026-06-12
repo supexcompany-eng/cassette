@@ -12,6 +12,13 @@ export interface Tape {
   from_name?: string | null
   note?: string | null
   shared_at?: string | null
+  /** 소유자 (RLS). createTape/saveReceived에서 설정 */
+  user_id?: string | null
+  /** 받은 카세트 여부 (true=상대에게 받아 보관한 복사본) */
+  is_received?: boolean | null
+  /** 받은 카세트의 원본 tape id (중복 보관 방지) */
+  source_tape_id?: string | null
+  received_at?: string | null
 }
 
 export interface TapeWithStats extends Tape {
