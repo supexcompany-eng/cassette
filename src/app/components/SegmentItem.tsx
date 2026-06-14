@@ -200,7 +200,7 @@ export default function SegmentItem({
               : ''
         }`}
       >
-        <span className="mt-[2px] flex h-[18px] w-[10px] shrink-0 items-center font-mix text-[14px] leading-none text-[#888]">{count}</span>
+        <span className="mt-[2.5px] w-[10px] shrink-0 font-mix text-[14px] leading-normal text-[#888]">{count}</span>
         <input
           type="text"
           value={message}
@@ -214,7 +214,7 @@ export default function SegmentItem({
           className="min-w-[20px] max-w-full bg-transparent font-mix text-[14px] leading-normal text-[#111] outline-none placeholder:text-[#d9d9d9] [field-sizing:content]"
         />
         <div className="flex-1" aria-hidden />
-        <span className="mt-[2px] flex h-[18px] shrink-0 items-center justify-end font-mix text-[12px] leading-none text-[#888]">{duration}</span>
+        <span className="mt-[2.5px] shrink-0 text-right font-mix text-[12px] leading-normal text-[#888]">{duration}</span>
       </motion.div>
     </div>
   )

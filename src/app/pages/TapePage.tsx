@@ -23,7 +23,6 @@ import VuMeter from '../components/VuMeter'
 import SegmentItem from '../components/SegmentItem'
 import NoteComposeSheet, { type NoteValues } from '../components/NoteComposeSheet'
 import SharePreview from '../components/SharePreview'
-import { ChevronRight } from 'lucide-react'
 import icBack from '../../assets/ic_back.svg'
 import icMore from '../../assets/ic_more.svg'
 import imgPlayerBody from '../../assets/img_player_body_default.png'
@@ -787,7 +786,9 @@ export default function TapePage() {
               >
                 <span className="flex-1 text-left font-['Orbit'] text-[16px] text-[#111]">카세트 수정</span>
                 <span className="flex size-[40px] items-center justify-center">
-                  <ChevronRight className="size-[14px] text-[#111]" strokeWidth={2.2} />
+                  <svg className="size-[16px]" viewBox="0 0 16 16" fill="none" aria-hidden>
+                    <path d="M6 3L11.33 8.33L6 13.67" stroke="#b6b6b6" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </span>
               </button>
               {/* 카세트 삭제하기 → 확인 다이얼로그 */}
