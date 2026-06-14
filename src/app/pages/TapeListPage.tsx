@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router'
 import { motion, AnimatePresence, useMotionValue, animate } from 'motion/react'
 import { Trash2 } from 'lucide-react'
 import { deleteTape, listTapesWithStats, listReceivedTapesWithStats } from '../../lib/db'
+import { useBlockSwipeBack } from '../../lib/swipeNav'
 import type { TapeWithStats } from '../../lib/types'
 import MobileFrame from '../components/MobileFrame'
 import CassetteStackRow from '../components/CassetteStackRow'
@@ -271,6 +272,7 @@ export default function TapeListPage() {
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  useBlockSwipeBack(confirmDeleteId !== null) // 삭제 다이얼로그 동안 뒤로가기 막음
   const [activeTab, setActiveTab] = useState<MainTab>(() => {
     const fromState = (location.state as { tab?: MainTab } | null)?.tab
     if (fromState === 'received' || fromState === 'mine') return fromState
@@ -373,7 +375,7 @@ export default function TapeListPage() {
         >
           <img src={viewMode === 'stack' ? icList : icStack} alt="" className="size-[24px]" aria-hidden />
         </button>
-        <p className="min-w-px flex-1 text-center font-mix text-[20px] leading-[32px] text-[#111]">cassette</p>
+        <p className="min-w-px flex-1 text-center font-mix text-[20px] font-medium leading-[32px] text-[#111]">Cassette</p>
         <button
           type="button"
           onClick={() => navigate('/settings')}

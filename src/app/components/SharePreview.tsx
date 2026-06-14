@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useTapePlayback } from '../../hooks/useTapePlayback'
 import CassetteDeck from './CassetteDeck'
 import NoteCard from './NoteCard'
+import { useBlockSwipeBack } from '../../lib/swipeNav'
 import type { NoteValues } from './NoteComposeSheet'
 import type { Segment, Tape } from '../../lib/types'
 
@@ -32,6 +33,7 @@ export default function SharePreview({ tape, segments, values, onClose, onEditNo
   const playback = useTapePlayback(segments)
   const ref = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
+  useBlockSwipeBack(true) // 풀팝업(닫기 버튼만) — 가장자리 뒤로가기 막음
 
   useEffect(() => {
     const el = ref.current

@@ -10,8 +10,18 @@ public class AudioSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "AudioSessionPlugin"
     public let jsName = "AudioSession"
     public let pluginMethods: [CAPPluginMethod] = [
-        CAPPluginMethod(name: "setRecording", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "setRecording", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setSwipeBack", returnType: CAPPluginReturnPromise)
     ]
+
+    /// 가장자리 스와이프 뒤로/앞으로 제스처 on/off (풀팝업·다이얼로그 동안 끄기 위함)
+    @objc func setSwipeBack(_ call: CAPPluginCall) {
+        let enabled = call.getBool("value") ?? true
+        DispatchQueue.main.async {
+            self.bridge?.webView?.allowsBackForwardNavigationGestures = enabled
+        }
+        call.resolve()
+    }
 
     override public func load() {
         applyPlayback() // 앱 시작 시 기본은 미디어 볼륨

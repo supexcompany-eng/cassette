@@ -192,7 +192,7 @@ export default function SegmentItem({
         onDragEnd={handleDragEnd}
         onClick={handleItemClick}
         style={{ x }}
-        className={`absolute left-0 right-0 top-0 flex h-[56px] touch-pan-y items-center gap-[12px] rounded-[8px] bg-white px-[17px] ${
+        className={`absolute left-0 right-0 top-0 flex h-[56px] touch-pan-y items-center gap-[10px] rounded-[8px] bg-white px-[16px] ${
           isReordering
             ? 'drop-shadow-[0px_0px_8px_rgba(16,13,10,0.07)]'
             : isFocused

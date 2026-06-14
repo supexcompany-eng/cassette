@@ -13,6 +13,7 @@ import {
 } from '../../lib/db'
 import { deleteAudio, getAudioUrl, uploadAudio } from '../../lib/storage'
 import { shareTape, SHARE_BASE_URL } from '../../lib/share'
+import { useBlockSwipeBack } from '../../lib/swipeNav'
 import type { Segment, Tape } from '../../lib/types'
 import { useRecorder } from '../../hooks/useRecorder'
 import { usePlayer } from '../../hooks/usePlayer'
@@ -80,6 +81,7 @@ export default function TapePage() {
   const [shareStep, setShareStep] = useState<'none' | 'compose' | 'preview' | 'editNote'>('none')
   const [noteValues, setNoteValues] = useState<NoteValues>({ to: '', note: '', from: '' })
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false) // 삭제 확인 다이얼로그
+  useBlockSwipeBack(confirmDeleteOpen) // 삭제 다이얼로그 동안 뒤로가기 막음 (쪽지/미리보기 팝업은 각 컴포넌트에서 처리)
 
   const recorder = useRecorder()
   const player = usePlayer()
@@ -744,7 +746,7 @@ export default function TapePage() {
             className="flex h-[56px] w-full items-center justify-center rounded-[8px] bg-[#222] disabled:bg-[#bdb8b0]"
           >
             <span className="font-mix text-[18px] leading-[25.5px] text-white">
-              {saving ? '저장 중...' : '녹음 완료'}
+              {saving ? '저장 중...' : '쪽지와 함께 보내기'}
             </span>
           </button>
         </div>
@@ -783,7 +785,7 @@ export default function TapePage() {
                 }}
                 className="flex h-[48px] w-full items-center gap-[20px] pl-[24px] pr-[4px]"
               >
-                <span className="flex-1 text-left font-['Orbit'] text-[16px] text-[#111]">카세트 바꾸기</span>
+                <span className="flex-1 text-left font-['Orbit'] text-[16px] text-[#111]">카세트 수정</span>
                 <span className="flex size-[40px] items-center justify-center">
                   <ChevronRight className="size-[14px] text-[#111]" strokeWidth={2.2} />
                 </span>

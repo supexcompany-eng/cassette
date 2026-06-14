@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router'
 import { motion, AnimatePresence } from 'motion/react'
 import { getTape, listSegments, deleteTape } from '../../lib/db'
 import { useTapePlayback } from '../../hooks/useTapePlayback'
+import { useBlockSwipeBack } from '../../lib/swipeNav'
 import CassetteDeck from '../components/CassetteDeck'
 import NoteCard from '../components/NoteCard'
 import icBack from '../../assets/ic_back.svg'
@@ -31,6 +32,7 @@ export default function ReceivedCassettePage() {
   const [error, setError] = useState<string | null>(null)
   const [scale, setScale] = useState(1)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  useBlockSwipeBack(confirmDelete) // 삭제 다이얼로그 동안 뒤로가기 막음
   const [toast, setToast] = useState<string | null>(() => {
     const t = (location.state as { toast?: string } | null)?.toast
     return t ?? null

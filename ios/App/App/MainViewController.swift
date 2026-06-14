@@ -6,5 +6,7 @@ import Capacitor
 class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(AudioSessionPlugin())
+        // 화면 가장자리 스와이프 = 웹뷰 히스토리 뒤로/앞으로 (React Router 라우트 이동)
+        webView?.allowsBackForwardNavigationGestures = true
     }
 }

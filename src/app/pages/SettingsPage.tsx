@@ -7,6 +7,7 @@ import { isButtonSoundOn, setButtonSoundOn } from '../../lib/prefs'
 import { getNickname, setNickname, ensureNickname } from '../../lib/nickname'
 import { CONTACT_MAILTO, PRIVACY_URL, TERMS_URL } from '../../lib/appInfo'
 import { shareApp } from '../../lib/share'
+import { useBlockSwipeBack } from '../../lib/swipeNav'
 import MobileFrame from '../components/MobileFrame'
 import icArrowLeft from '../../assets/ic_arrow_left.svg'
 
@@ -61,6 +62,7 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const [soundOn, setSoundOn] = useState(() => isButtonSoundOn())
   const [confirmLeave, setConfirmLeave] = useState(false)
+  useBlockSwipeBack(confirmLeave) // 회원탈퇴 다이얼로그 동안 뒤로가기 막음
 
   const toggleSound = (next: boolean) => {
     setSoundOn(next)

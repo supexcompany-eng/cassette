@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { X } from 'lucide-react'
 import { createTape, getTape, updateTape } from '../../lib/db'
 import { CASSETTE_DESIGNS } from '../../lib/cassetteDesigns'
+import { useBlockSwipeBack } from '../../lib/swipeNav'
 import MobileFrame from '../components/MobileFrame'
 import CassetteView from '../components/CassetteView'
 import imgShadow from '../../assets/img_shadow_create.png'
@@ -33,6 +34,7 @@ export default function NewCassettePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [discardOpen, setDiscardOpen] = useState(false) // 편집 중 닫기 시 확인
+  useBlockSwipeBack(discardOpen) // 닫기 확인 다이얼로그 동안 뒤로가기 막음
   const dragStartXRef = useRef<number | null>(null)
   const draggedRef = useRef(false)
   const originalRef = useRef<{ caption: string; design: string } | null>(null) // 편집 전 값
@@ -153,7 +155,7 @@ export default function NewCassettePage() {
           />
           {/* 가이드 텍스트: 포커스 안 됐고 비어있을 때만 노출 (탭=포커스 시 사라지고 커서 노출) */}
           {!focused && !caption ? (
-            <p className="pointer-events-none absolute inset-0 flex items-center justify-center font-['Orbit'] text-[22px] text-[#c4c4c4]">
+            <p className="pointer-events-none absolute inset-0 flex items-center justify-center font-['Orbit'] text-[22px] text-[#d9d9d9]">
               순간을 기억할 문장을 적어주세요
             </p>
           ) : null}

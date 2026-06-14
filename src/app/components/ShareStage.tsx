@@ -74,7 +74,7 @@ export default function ShareStage({
         ) : (
           <div className="size-[40px] shrink-0" aria-hidden />
         )}
-        <p className="min-w-px flex-1 text-center font-mix text-[20px] leading-[32px] text-[#111]">{headerText}</p>
+        <p className="min-w-px flex-1 text-center font-mix text-[20px] font-medium leading-[32px] text-[#111]">{headerText}</p>
         {onClose ? (
           <button
             type="button"

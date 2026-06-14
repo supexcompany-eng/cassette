@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import CassetteView from './CassetteView'
+import { useBlockSwipeBack } from '../../lib/swipeNav'
 
 export interface NoteValues {
   to: string
@@ -38,6 +39,7 @@ export default function NoteComposeSheet({
   const [to, setTo] = useState(initial.to)
   const [note, setNote] = useState(initial.note)
   const [from, setFrom] = useState(initial.from)
+  useBlockSwipeBack(true) // 풀팝업(닫기 버튼만) — 가장자리 뒤로가기 막음
 
   const allFilled = to.trim().length > 0 && note.trim().length > 0 && from.trim().length > 0
   const changed = to !== initial.to || note !== initial.note || from !== initial.from
@@ -93,9 +95,9 @@ export default function NoteComposeSheet({
             maxLength={TO_MAX}
             onChange={(e) => setTo(e.target.value.slice(0, TO_MAX))}
             placeholder="받으시는 분 이름을 써주세요"
-            className="w-full rounded-[8px] bg-white px-[14px] py-[15px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#b3aea6]"
+            className="w-full rounded-[8px] bg-white px-[20px] py-[15px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#d9d9d9]"
           />
-          <div className="flex flex-col gap-[10px] rounded-[8px] bg-white px-[14px] py-[16px]">
+          <div className="flex flex-col gap-[10px] rounded-[8px] bg-white px-[20px] py-[16px]">
             <p className="font-['Orbit'] text-[12px] text-[#111]">쪽지 내용</p>
             <textarea
               value={note}
@@ -103,7 +105,7 @@ export default function NoteComposeSheet({
               onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
               placeholder="간단한 쪽지를 남겨보세요"
               rows={3}
-              className="min-h-[78px] w-full resize-none bg-transparent font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#b3aea6]"
+              className="min-h-[78px] w-full resize-none bg-transparent font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#d9d9d9]"
             />
           </div>
           <input
@@ -112,7 +114,7 @@ export default function NoteComposeSheet({
             maxLength={FROM_MAX}
             onChange={(e) => setFrom(e.target.value.slice(0, FROM_MAX))}
             placeholder="보내시는 분 이름을 써주세요"
-            className="w-full rounded-[8px] bg-white px-[14px] py-[15px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#b3aea6]"
+            className="w-full rounded-[8px] bg-white px-[20px] py-[15px] font-['Orbit'] text-[16px] leading-[26px] text-[#111] outline-none placeholder:text-[#d9d9d9]"
           />
         </div>
       </div>
