@@ -221,7 +221,7 @@ export default function NewCassettePage() {
           }`}
         >
           <span className="font-mix text-[18px] leading-[25.5px] text-white">
-            {isEdit ? (saving ? '저장 중...' : '저장하기') : saving ? '만드는 중...' : '완료'}
+            {isEdit ? (saving ? '저장 중...' : '저장하기') : saving ? '만드는 중...' : '카세트 만들기'}
           </span>
         </button>
       </div>

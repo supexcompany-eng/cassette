@@ -16,7 +16,7 @@ const MEMO_TOP = 524
 
 function formatDate(iso?: string | null): string {
   const d = iso ? new Date(iso) : new Date()
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+  return `${String(d.getFullYear()).slice(-2)}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
 }
 
 /** 받은 카세트 상세 — 보관된 복사본(내 것)을 본다. 헤더: 뒤로(받은 탭) / 삭제. CTA 없음. */
