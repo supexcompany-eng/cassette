@@ -402,7 +402,7 @@ export default function TapeListPage() {
               </div>
             )}
             {viewMode === 'stack' ? (
-              <div className="px-[20px] pt-[20px]">
+              <div className="mx-auto w-full max-w-[430px] px-[20px] pt-[20px]">
                 <div className="flex flex-col gap-[4px]">
                   {tapes.map((tape) => (
                     <CassetteStackRow
@@ -442,7 +442,7 @@ export default function TapeListPage() {
             <p className="font-mix text-[14px] text-[#b6b6b6]">받은 카세트가 아직 없어요</p>
           </div>
         ) : viewMode === 'stack' ? (
-          <div className="px-[20px] pt-[20px]">
+          <div className="mx-auto w-full max-w-[430px] px-[20px] pt-[20px]">
             <div className="flex flex-col gap-[4px]">
               {receivedTapes.map((tape) => (
                 <CassetteStackRow

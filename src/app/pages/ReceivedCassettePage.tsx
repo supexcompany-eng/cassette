@@ -3,16 +3,17 @@ import { useParams, useNavigate, useLocation } from 'react-router'
 import { motion, AnimatePresence } from 'motion/react'
 import { getTape, listSegments, deleteTape } from '../../lib/db'
 import { useTapePlayback } from '../../hooks/useTapePlayback'
-import ShareStage from '../components/ShareStage'
+import CassetteDeck from '../components/CassetteDeck'
+import NoteCard from '../components/NoteCard'
 import icBack from '../../assets/ic_back.svg'
 import icDel from '../../assets/ic_del.svg'
 import type { Segment, Tape } from '../../lib/types'
 
-// 받은 카세트 상세: 풀스크린(852), 데크 top0, 쪽지 top524 (Figma 290-12604)
+// 받은 카세트 상세 — 내 카세트(플레이어)와 동일 스크롤 정책: 데크 폭(320~430) 스케일 고정 + 쪽지만 아래로 스크롤.
 const STAGE_W = 393
-const STAGE_H = 852
-const DECK_TOP = 0
-const MEMO_TOP = 524
+const MEMO_TOP = 524 // 데크 아래 쪽지 시작 y (디자인 기준)
+const NOTE_H = 180 // NoteCard(bg_memo 393×180) 자연 높이
+const DECK_BOTTOM = 544 // 데크 시각 바닥 y (마스크 위치 기준, 쪽지와 20 overlap)
 
 function formatDate(iso?: string | null): string {
   const d = iso ? new Date(iso) : new Date()
@@ -37,7 +38,8 @@ export default function ReceivedCassettePage() {
   const playback = useTapePlayback(segments)
 
   useEffect(() => {
-    const fit = () => setScale(Math.min(window.innerWidth / STAGE_W, 1.4))
+    // 플레이어와 동일: 폭 320~430 구간만 비례, 밖이면 경계값 고정 (데크가 폭을 꽉 채움)
+    const fit = () => setScale(Math.max(320, Math.min(window.innerWidth, 430)) / STAGE_W)
     fit()
     window.addEventListener('resize', fit)
     return () => window.removeEventListener('resize', fit)
@@ -81,38 +83,52 @@ export default function ReceivedCassettePage() {
 
   if (loading || error || !tape) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-[#e7e3df] font-mix text-[14px] text-[#888]">
+      <div className="fixed inset-0 flex items-center justify-center bg-[#f5f3f1] font-mix text-[14px] text-[#888]">
         {loading ? 'loading…' : (error ?? '카세트를 찾을 수 없어요')}
       </div>
     )
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#e7e3df]">
+    <div className="fixed inset-0 bg-[#f5f3f1]">
+      {/* 스크롤(z-0): 쪽지가 데크 아래로 스크롤 (내 카세트 플레이어와 동일 정책) */}
+      <div className="absolute inset-0 z-0 overflow-y-auto overflow-x-hidden [overscroll-behavior:none]">
+        <div style={{ paddingTop: MEMO_TOP * scale, paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)' }}>
+          <div className="relative mx-auto" style={{ width: STAGE_W * scale, height: NOTE_H * scale }}>
+            <div
+              className="absolute left-0 top-0"
+              style={{ width: STAGE_W, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+            >
+              <NoteCard
+                toName={tape.to_name ?? ''}
+                note={tape.note ?? ''}
+                fromName={tape.from_name ?? ''}
+                date={formatDate(tape.shared_at)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 마스크(z-10): 데크 바닥에서 쪽지가 부드럽게 사라짐 (플레이어 mask_top과 동일) */}
       <div
-        className="absolute left-1/2 top-0"
-        style={{ transform: `translateX(-50%) scale(${scale})`, transformOrigin: 'top center' }}
-      >
-        <ShareStage
-          tape={tape}
-          segments={segments}
-          playback={playback}
-          headerText=""
-          hideHeader
-          toName={tape.to_name ?? ''}
-          note={tape.note ?? ''}
-          fromName={tape.from_name ?? ''}
-          date={formatDate(tape.shared_at)}
-          width={STAGE_W}
-          height={STAGE_H}
-          deckTop={DECK_TOP}
-          memoTop={MEMO_TOP}
-        />
+        className="pointer-events-none absolute inset-x-0 z-10 h-[42px] bg-gradient-to-t from-[20%] from-[rgba(245,243,241,0)] to-[70%] to-[#f5f3f1]"
+        style={{ top: DECK_BOTTOM * scale - 52 }}
+      />
+
+      {/* 데크(z-20): 폭(320~430) 스케일로 상단 고정. 컨트롤만 클릭 가능(플레이어와 동일) */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20">
+        <div
+          className="absolute left-1/2 top-0 w-[393px]"
+          style={{ transform: `translateX(-50%) scale(${scale})`, transformOrigin: 'top center' }}
+        >
+          <CassetteDeck tape={tape} segments={segments} playback={playback} />
+        </div>
       </div>
 
       {/* 헤더 — safe-area 기준 (백 / 삭제) */}
       <header
-        className="absolute inset-x-0 z-20 flex h-[64px] items-center px-[16px]"
+        className="absolute inset-x-0 z-30 flex h-[64px] items-center px-[16px]"
         style={{ top: 'env(safe-area-inset-top)' }}
       >
         <button

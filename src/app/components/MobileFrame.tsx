@@ -14,9 +14,9 @@ export default function MobileFrame({
   outerClassName = 'bg-[#000000]',
 }: MobileFrameProps) {
   return (
-    <div className={`min-h-dvh sm:flex sm:items-center sm:justify-center ${outerClassName}`}>
+    <div className={`min-h-dvh ${outerClassName}`}>
       <div
-        className={`relative mx-auto flex h-dvh w-full flex-col overflow-hidden sm:h-[852px] ${innerClassName}`}
+        className={`relative mx-auto flex h-dvh w-full flex-col overflow-hidden ${innerClassName}`}
       >
         {children}
       </div>
