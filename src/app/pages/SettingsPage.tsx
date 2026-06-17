@@ -8,6 +8,8 @@ import { getNickname, setNickname, ensureNickname } from '../../lib/nickname'
 import { CONTACT_MAILTO, PRIVACY_URL, TERMS_URL } from '../../lib/appInfo'
 import { shareApp } from '../../lib/share'
 import { useBlockSwipeBack } from '../../lib/swipeNav'
+import { disableLock, isLockEnabled } from '../../lib/appLock'
+import PinSetup from '../components/PinSetup'
 import MobileFrame from '../components/MobileFrame'
 import icArrowLeft from '../../assets/ic_arrow_left.svg'
 
@@ -62,11 +64,25 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const [soundOn, setSoundOn] = useState(() => isButtonSoundOn())
   const [confirmLeave, setConfirmLeave] = useState(false)
-  useBlockSwipeBack(confirmLeave) // 회원탈퇴 다이얼로그 동안 뒤로가기 막음
+  const [lockOn, setLockOn] = useState(() => isLockEnabled())
+  const [showPinSetup, setShowPinSetup] = useState(false)
+  useBlockSwipeBack(confirmLeave || showPinSetup) // 다이얼로그·PIN설정 동안 뒤로가기 막음
 
   const toggleSound = (next: boolean) => {
     setSoundOn(next)
     setButtonSoundOn(next)
+  }
+
+  const toggleLock = (next: boolean) => {
+    if (next) setShowPinSetup(true)
+    else {
+      disableLock()
+      setLockOn(false)
+    }
+  }
+  const onPinSetupDone = () => {
+    setShowPinSetup(false)
+    setLockOn(true)
   }
 
   // 닉네임 (지금은 localStorage 임시 — 인증 단계에서 profiles + 중복검사로 교체)
@@ -97,6 +113,7 @@ export default function SettingsPage() {
   }
 
   const handleLogout = async () => {
+    disableLock()
     try {
       await supabase.auth.signOut()
     } catch {
@@ -107,6 +124,7 @@ export default function SettingsPage() {
 
   const handleWithdraw = async () => {
     setConfirmLeave(false)
+    disableLock()
     try {
       await deleteAccount() // 내 데이터 전량 삭제 + 로그아웃
     } catch {
@@ -167,7 +185,7 @@ export default function SettingsPage() {
         </div>
 
         {/* 설정 섹션 */}
-        <section className="mt-[40px] flex flex-col gap-[10px]">
+        <section className="mt-[30px] flex flex-col gap-[10px]">
           <div className="flex items-center px-[24px]">
             <p className="font-['Orbit'] text-[14px] text-[#888]">설정</p>
           </div>
@@ -177,6 +195,25 @@ export default function SettingsPage() {
               <p className="min-w-px flex-1 font-['Orbit'] text-[16px] text-[#111]">플레이어 버튼음</p>
               <Toggle on={soundOn} onChange={toggleSound} />
             </div>
+
+            {/* 앱 잠금 (PIN) */}
+            <div className="flex h-[54px] items-center gap-[20px] py-[10px] pl-[24px] pr-[20px]">
+              <p className="min-w-px flex-1 font-['Orbit'] text-[16px] text-[#111]">앱 잠금</p>
+              <Toggle on={lockOn} onChange={toggleLock} />
+            </div>
+
+            {lockOn ? (
+              <button
+                type="button"
+                onClick={() => setShowPinSetup(true)}
+                className="flex h-[54px] items-center gap-[20px] py-[10px] pl-[24px] pr-[10px] text-left"
+              >
+                <p className="min-w-px flex-1 font-['Orbit'] text-[16px] text-[#111]">비밀번호 변경</p>
+                <span className="flex size-[40px] items-center justify-center">
+                  <ChevronRight />
+                </span>
+              </button>
+            ) : null}
 
             {/* 구분선 */}
             <div className="flex h-[30px] items-center px-[20px]">
@@ -219,7 +256,7 @@ export default function SettingsPage() {
 
         {/* 하단 고정: 회원탈퇴 + 약관/처리방침 (위 컨텐츠와 간격 가변) */}
         <div
-          className="mt-auto flex flex-col items-center gap-[30px] pt-[40px]"
+          className="mt-auto flex flex-col items-center gap-[20px] pt-[40px]"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 26px)' }}
         >
           <button
@@ -285,6 +322,8 @@ export default function SettingsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showPinSetup ? <PinSetup onDone={onPinSetupDone} onCancel={() => setShowPinSetup(false)} /> : null}
     </MobileFrame>
   )
 }

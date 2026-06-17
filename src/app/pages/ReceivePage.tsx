@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router'
 import { saveReceived } from '../../lib/db'
 import { useSession } from '../auth/SessionContext'
@@ -15,6 +15,7 @@ export default function ReceivePage() {
   const { id } = useParams<{ id: string }>() // 원본(공유) 카세트 id
   const navigate = useNavigate()
   const { session, loading: sessionLoading } = useSession()
+  const handledRef = useRef(false) // 세션 객체가 바뀌어도(토큰 갱신 등) 보관은 1회만
 
   useEffect(() => {
     if (sessionLoading || !id) return
@@ -30,6 +31,9 @@ export default function ReceivePage() {
       return
     }
 
+    if (handledRef.current) return // 이미 보관 처리 시작함 → 재실행 방지(루프 차단)
+    handledRef.current = true
+
     let cancelled = false
     saveReceived(id)
       .then((res) => {
@@ -40,7 +44,7 @@ export default function ReceivePage() {
         }
         navigate(`/received/${res.tapeId}`, {
           replace: true,
-          state: { toast: res.status === 'already' ? '이미 받은 카세트에 있어요' : '받은 카세트에 보관했어요' },
+          state: { toast: res.status === 'already' ? '이미 저장된 카세트입니다' : '받은 카세트에 저장되었습니다' },
         })
       })
       .catch(() => {

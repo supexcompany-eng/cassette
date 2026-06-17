@@ -6,7 +6,7 @@ import { SHARE_BASE_URL } from './share'
  */
 
 /** 문의 메일 주소 (설정 > 문의하기). 변경 시 여기만 고치면 됨 */
-export const CONTACT_EMAIL = 'supex.company@gmail.com'
+export const CONTACT_EMAIL = 'mgsong.biz@gmail.com'
 
 /** 개인정보처리방침 / 이용약관 (Vercel 호스팅 정적 페이지) */
 export const PRIVACY_URL = `${SHARE_BASE_URL}/privacy`

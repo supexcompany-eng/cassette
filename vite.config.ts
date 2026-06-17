@@ -24,5 +24,9 @@ export default defineConfig({
     host: true,
     // cloudflare 임시 터널(https) 호스트 허용 (모바일 PWA 테스트용)
     allowedHosts: ['.trycloudflare.com'],
+    // 네이티브 복사본/빌드 산출물 감시 제외 (cap sync가 ios/android에 복사 → 무한 리로드 방지)
+    watch: {
+      ignored: ['**/ios/**', '**/android/**', '**/dist/**'],
+    },
   },
 })

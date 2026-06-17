@@ -272,7 +272,7 @@ export default function TapeListPage() {
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-  useBlockSwipeBack(confirmDeleteId !== null) // 삭제 다이얼로그 동안 뒤로가기 막음
+  useBlockSwipeBack(true) // 메인 화면에선 가장자리 스와이프 뒤로가기 막음 (삭제 다이얼로그 포함)
   const [activeTab, setActiveTab] = useState<MainTab>(() => {
     const fromState = (location.state as { tab?: MainTab } | null)?.tab
     if (fromState === 'received' || fromState === 'mine') return fromState

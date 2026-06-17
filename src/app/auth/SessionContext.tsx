@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate, Outlet } from 'react-router'
 import type { Session } from '@supabase/supabase-js'
 import { Capacitor } from '@capacitor/core'
@@ -54,7 +54,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  return <SessionContext.Provider value={{ session, loading }}>{children}</SessionContext.Provider>
+  const value = useMemo(() => ({ session, loading }), [session, loading])
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }
 
 /** 로그인 필요한 라우트 가드 — 미로그인 시 /login으로 */

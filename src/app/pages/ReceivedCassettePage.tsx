@@ -152,16 +152,16 @@ export default function ReceivedCassettePage() {
         </button>
       </header>
 
-      {/* 토스트 (3초) */}
+      {/* 토스트 (3초) — 하단 풀폭 바, 위치이동 없이 페이드만 (디자인 510:17554) */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            className="absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-[20px] bg-black/75 px-[18px] py-[10px] font-['Orbit'] text-[13px] text-white"
-            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2 }}
+            className="absolute inset-x-[20px] z-30 flex h-[44px] items-center justify-center rounded-[8px] bg-[#111]/80 font-['Orbit'] text-[14px] text-white"
+            style={{ bottom: 'max(46px, env(safe-area-inset-bottom))' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
           >
             {toast}
           </motion.div>

@@ -13,7 +13,8 @@ export const NATIVE_REDIRECT = 'com.happycoding.cassette://login-callback'
  * - 웹: 현재 origin으로 리다이렉트 왕복 (detectSessionInUrl이 자동 처리)
  */
 export async function signIn(provider: OAuthProvider): Promise<void> {
-  // 카카오: 이메일(account_email)은 비즈앱 권한이 필요해 요청하지 않음. 닉네임/프로필사진만.
+  // 카카오: Supabase가 profile_nickname+profile_image를 강제 요청하므로 동의항목에 둘 다 켜져 있어야 함.
+  // (account_email은 동의항목에 켜져 있으면 함께 수집됨)
   const scopes = provider === 'kakao' ? 'profile_nickname profile_image' : undefined
 
   if (Capacitor.isNativePlatform()) {
